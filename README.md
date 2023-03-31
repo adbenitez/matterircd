@@ -4,7 +4,7 @@ Minimal IRC server which integrates with [Delta Chat](https://delta.chat)
 
 ## Features
 
-- support direct messages / private channels / deleted messages / reactions
+- support direct messages / private channels
 - auto-join/leave to same channels as on Delta Chat
 - reconnects with backoff on Delta Chat restarts
 - support multiple users
@@ -18,6 +18,7 @@ Minimal IRC server which integrates with [Delta Chat](https://delta.chat)
 - TODO: prefixcontext option (see <https://github.com/deltachat/deltaircd/blob/master/prefixcontext.md>)
   - TODO: replies support
   - TODO: reactions support
+  - TODO: delete messages
 - TODO: search messages (/msg deltachat search query)
 - TODO: scrollback support (/msg deltachat scrollback #channel limit)
 
@@ -49,7 +50,7 @@ Run with `deltaircd --conf deltaircd.toml`
 
 ## Usage
 
-```bash
+```
 Usage of ./deltaircd:
       --bind string      interface:port to bind to, or a path to bind to a Unix socket. (default "127.0.0.1:6667")
       --conf string      config file (default "deltaircd.toml")
@@ -63,7 +64,8 @@ deltaircd will listen by default on localhost port 6667.
 Connect with your favorite IRC client to localhost:6667
 
 For TLS support you'll need to generate certificates.
-You can use this program [generate_cert.go](https://golang.org/src/crypto/tls/generate_cert.go) to generate key.pem and cert.pem
+You can use this program [generate_cert.go](https://golang.org/src/crypto/tls/generate_cert.go) to
+generate key.pem and cert.pem
 
 ### Delta Chat user commands
 
