@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/42wim/matterircd/bridge"
+	"github.com/deltachat/deltaircd/bridge"
 	"github.com/desertbit/timer"
 	"github.com/sorcix/irc"
 	"github.com/spf13/viper"
@@ -131,17 +131,6 @@ func (u *User) Encode(msgs ...*irc.Message) (err error) {
 	}
 
 	for _, msg := range msgs {
-		if msg.Command == "PRIVMSG" && (msg.Prefix.Name == "slack" || msg.Prefix.Name == "mattermost") && msg.Prefix.Host == "service" && strings.Contains(msg.Trailing, "token") {
-			logger.Debugf("-> %s %s %s", msg.Command, msg.Prefix.Name, "[token redacted]")
-
-			err := u.Conn.Encode(msg)
-			if err != nil {
-				return err
-			}
-
-			continue
-		}
-
 		logger.Debugf("-> %s", msg)
 
 		err := u.Conn.Encode(msg)
@@ -231,7 +220,7 @@ func (u *User) Decode() {
 		}
 
 		dmsg := fmt.Sprintf("<- %s", msg)
-		if msg.Command == "PRIVMSG" && msg.Params != nil && (msg.Params[0] == "slack" || msg.Params[0] == "mattermost") {
+		if msg.Command == "PRIVMSG" && msg.Params != nil && (msg.Params[0] == "deltachat") {
 			// Don't log sensitive information
 			trail := strings.Split(msg.Trailing, " ")
 			if (msg.Trailing != "" && trail[0] == "login") || (len(msg.Params) > 1 && msg.Params[1] == "login") {

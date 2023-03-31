@@ -2,24 +2,16 @@ package irckit
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"net"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
-
-	"github.com/42wim/matterircd/bridge"
-	"github.com/42wim/matterircd/bridge/mastodon"
-	"github.com/42wim/matterircd/bridge/mattermost"
-	"github.com/42wim/matterircd/bridge/slack"
 	"github.com/alecthomas/chroma/v2/quick"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/deltachat/deltaircd/bridge"
+	"github.com/deltachat/deltaircd/bridge/deltachat"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/sorcix/irc"
 	"github.com/spf13/viper"
@@ -35,8 +27,7 @@ type UserBridge struct {
 	eventChan   chan *bridge.Event //nolint:structcheck
 	away        bool               //nolint:structcheck
 
-	lastViewedAtDB *bolt.DB       //nolint:structcheck
-	msgCounter     map[string]int //nolint:structcheck
+	msgCounter map[string]int //nolint:structcheck
 
 	msgLastMutex sync.RWMutex         //nolint:structcheck
 	msgLast      map[string][2]string //nolint:structcheck
@@ -48,7 +39,7 @@ type UserBridge struct {
 	updateCounter      map[string]time.Time //nolint:structcheck
 }
 
-func NewUserBridge(c net.Conn, srv Server, cfg *viper.Viper, db *bolt.DB) *User {
+func NewUserBridge(c net.Conn, srv Server, cfg *viper.Viper) *User {
 	u := NewUser(&conn{
 		Conn:    c,
 		Encoder: irc.NewEncoder(c),
@@ -57,7 +48,6 @@ func NewUserBridge(c net.Conn, srv Server, cfg *viper.Viper, db *bolt.DB) *User 
 
 	u.Srv = srv
 	u.v = cfg
-	u.lastViewedAtDB = db
 	u.msgLast = make(map[string][2]string)
 	u.msgMap = make(map[string]map[string]int)
 	u.msgCounter = make(map[string]int)
@@ -65,10 +55,8 @@ func NewUserBridge(c net.Conn, srv Server, cfg *viper.Viper, db *bolt.DB) *User 
 	u.eventChan = make(chan *bridge.Event, 1000)
 
 	// used for login
-	u.createService("mattermost", "loginservice")
-	u.createService("slack", "loginservice")
-	u.createService("mastodon", "loginservice")
-	u.createService("matterircd", "systemservice")
+	u.createService("deltachat", "loginservice")
+	u.createService("deltaircd", "systemservice")
 	return u
 }
 
@@ -114,8 +102,6 @@ func (u *User) handleChannelTopicEvent(event *bridge.ChannelTopicEvent) {
 	if ok {
 		ch := u.Srv.Channel(event.ChannelID)
 		ch.Topic(tu, event.Text)
-
-		u.saveLastViewedAt(event.ChannelID)
 		return
 	}
 
@@ -169,11 +155,6 @@ func (u *User) handleDirectMessageEvent(event *bridge.DirectMessageEvent) {
 			u.MsgSpoofUser(u.createUserFromInfo(event.Sender), u.Nick, text, len(text))
 		}
 	}
-
-	if !u.v.GetBool(u.br.Protocol() + ".disableautoview") {
-		u.updateLastViewed(event.ChannelID)
-	}
-	u.saveLastViewedAt(event.ChannelID)
 }
 
 func (u *User) handleChannelAddEvent(event *bridge.ChannelAddEvent) {
@@ -182,42 +163,34 @@ func (u *User) handleChannelAddEvent(event *bridge.ChannelAddEvent) {
 	for _, added := range event.Added {
 		if added.Me {
 			u.syncChannel(event.ChannelID, u.br.GetChannelName(event.ChannelID))
-			continue
+		} else {
+			ghost := u.createUserFromInfo(added)
+			ch.Join(ghost)
 		}
-
-		ghost := u.createUserFromInfo(added)
-
-		ch.Join(ghost)
 
 		if event.Adder != nil && added.Nick != event.Adder.Nick && event.Adder.Nick != systemUser {
 			ch.SpoofMessage(systemUser, "added "+added.Nick+" to the channel by "+event.Adder.Nick)
 		}
 	}
-
-	if !u.v.GetBool(u.br.Protocol() + ".disableautoview") {
-		u.updateLastViewed(event.ChannelID)
-	}
-	u.saveLastViewedAt(event.ChannelID)
 }
 
 func (u *User) handleChannelRemoveEvent(event *bridge.ChannelRemoveEvent) {
 	ch := u.Srv.Channel(event.ChannelID)
 
 	for _, removed := range event.Removed {
-		if removed.Me {
-			ch.Part(u, "")
-			continue
+		if !removed.Me {
+			ghost := u.createUserFromInfo(removed)
+			ch.Part(ghost, "")
 		}
-
-		ghost := u.createUserFromInfo(removed)
-
-		ch.Part(ghost, "")
 
 		if event.Remover != nil && removed.Nick != event.Remover.Nick && event.Remover.Nick != systemUser {
 			ch.SpoofMessage(systemUser, "removed "+removed.Nick+" from the channel by "+event.Remover.Nick)
 		}
+
+		if removed.Me {
+			ch.Part(u, "")
+		}
 	}
-	u.saveLastViewedAt(event.ChannelID)
 }
 
 func (u *User) getMessageChannel(channelID string, sender *bridge.UserInfo) Channel {
@@ -226,10 +199,8 @@ func (u *User) getMessageChannel(channelID string, sender *bridge.UserInfo) Chan
 
 	// if it's another user, let them join
 	if !ghost.Me && !ch.HasUser(ghost) {
-		if u.br.Protocol() != "mastodon" {
-			logger.Debugf("User %s is not in channel %s. Joining now", ghost.Nick, ch.String())
-			ch.Join(ghost) //nolint:errcheck
-		}
+		logger.Debugf("User %s is not in channel %s. Joining now", ghost.Nick, ch.String())
+		ch.Join(ghost) //nolint:errcheck
 	}
 
 	// check if we mayjoin this channel
@@ -312,20 +283,11 @@ func (u *User) handleChannelMessageEvent(event *bridge.ChannelMessageEvent) {
 			ch.SpoofMessage(nick, text, len(text))
 		}
 	}
-
-	if !u.v.GetBool(u.br.Protocol() + ".disableautoview") {
-		u.updateLastViewed(event.ChannelID)
-	}
-	u.saveLastViewedAt(event.ChannelID)
 }
 
 func (u *User) handleFileEvent(event *bridge.FileEvent) {
 	for _, fname := range event.Files {
 		fileMsg := "download file - " + fname.Name
-		if u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost" || u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost+post" {
-			threadMsgID := u.prefixContext(event.ChannelID, event.MessageID, event.ParentID, "")
-			fileMsg = u.formatContextMessage("", threadMsgID, fileMsg)
-		}
 
 		switch event.ChannelType {
 		case "D":
@@ -424,8 +386,6 @@ func (u *User) handleReactionEvent(event interface{}) {
 		channelType = e.ChannelType
 		reaction = e.Reaction
 	}
-
-	defer u.saveLastViewedAt(channelID)
 
 	if u.v.GetBool(u.br.Protocol() + ".hidereactions") {
 		logger.Debug("Not showing reaction: " + text + reaction)
@@ -528,7 +488,7 @@ func (u *User) addUsersToChannel(users []*User, channel string, channelID string
 	ch.BatchJoin(users)
 }
 
-func (u *User) addUsersToChannels() {
+func (u *User) onConnect() {
 	// wait until the bridge is ready
 	for u.br == nil {
 		logger.Debug("bridge not ready yet, sleeping")
@@ -536,9 +496,12 @@ func (u *User) addUsersToChannels() {
 	}
 
 	srv := u.Srv
-	throttle := time.NewTicker(time.Millisecond * 200)
 
-	logger.Debug("in addUsersToChannels()")
+	// set self-nick to account nick
+	srv.RenameUser(u, u.br.GetMe().Nick)
+
+	logger.Debug("adding users to channels")
+
 	// add all users, also who are not on channels
 	ch := srv.Channel("&users")
 
@@ -552,34 +515,19 @@ func (u *User) addUsersToChannels() {
 		ch.Join(u) //nolint:errcheck
 	}
 
-	if u.br.Protocol() == "mastodon" {
-		ch = srv.Channel("mastodon")
-		ch.Join(u) //nolint:errcheck
-	}
-
 	// channel that receives messages from channels not joined on irc
 	ch = srv.Channel("&messages")
 	ch.Join(u)
 
-	channels := make(chan *bridge.ChannelInfo, 5)
-	for i := 0; i < 10; i++ {
-		go u.addUserToChannelWorker(channels, throttle)
-	}
-
-	for _, brchannel := range u.br.GetChannels() {
-		logger.Debugf("Adding channel %#v", brchannel)
-
-		// only joindm when specified
-		if brchannel.DM && !u.v.GetBool(u.br.Protocol()+".joindm") {
-			logger.Debugf("Skipping IM channel %s", brchannel.Name)
-
-			continue
+	// only join chats on startup when specified
+	if u.v.GetBool(u.br.Protocol() + ".skipjoinonstart") {
+		logger.Debug("Skipping joining channels")
+	} else {
+		for _, brchannel := range u.br.GetChannels() {
+			logger.Debugf("Adding channel %#v", brchannel)
+			u.createSpoof(brchannel)
 		}
-
-		channels <- brchannel
 	}
-
-	close(channels)
 
 	// we did all the initialization, now listen for events
 	go u.handleEventChan()
@@ -598,149 +546,10 @@ func (u *User) createSpoof(mmchannel *bridge.ChannelInfo) func(string, string, .
 
 	channelName := mmchannel.Name
 
-	if mmchannel.TeamID != u.br.GetMe().TeamID || u.v.GetBool(u.br.Protocol()+".prefixmainteam") {
-		channelName = u.br.GetTeamName(mmchannel.TeamID) + "/" + mmchannel.Name
-	}
-
 	u.syncChannel(mmchannel.ID, "#"+channelName)
 	ch := u.Srv.Channel(mmchannel.ID)
 
 	return ch.SpoofMessage
-}
-
-//nolint:funlen,gocognit,gocyclo,cyclop
-func (u *User) addUserToChannelWorker(channels <-chan *bridge.ChannelInfo, throttle *time.Ticker) {
-	for brchannel := range channels {
-		logger.Debug("addUserToChannelWorker", brchannel)
-
-		<-throttle.C
-		// exclude direct messages
-		spoof := u.createSpoof(brchannel)
-
-		since := u.br.GetLastViewedAt(brchannel.ID)
-		// ignore invalid/deleted/old channels
-		if since == 0 {
-			continue
-		}
-
-		logSince := "server"
-		channame := brchannel.Name
-		if !brchannel.DM {
-			channame = fmt.Sprintf("#%s", brchannel.Name)
-		}
-
-		// We used to stored last viewed at if present.
-		var lastViewedAt int64
-		key := brchannel.ID
-		err := u.lastViewedAtDB.View(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(u.User))
-			if v := b.Get([]byte(key)); v != nil {
-				lastViewedAt = int64(binary.LittleEndian.Uint64(v))
-			}
-			return nil
-		})
-		if err != nil {
-			logger.Errorf("something wrong with u.lastViewedAtDB.View for %s for channel %s (%s)", u.Nick, channame, brchannel.ID)
-			lastViewedAt = since
-		}
-
-		// But only use the stored last viewed if it's later than what the server knows.
-		if lastViewedAt > since {
-			since = lastViewedAt + 1
-			logSince = "stored"
-		}
-
-		// post everything to the channel you haven't seen yet
-		postlist := u.br.GetPostsSince(brchannel.ID, since)
-		if postlist == nil {
-			// if the channel is not from the primary team id, we can't get posts
-			if brchannel.TeamID == u.br.GetMe().TeamID {
-				logger.Errorf("something wrong with getPostsSince for %s for channel %s (%s)", u.Nick, channame, brchannel.ID)
-			}
-			continue
-		}
-
-		showReplayHdr := true
-
-		mmPostList, _ := postlist.(*model.PostList)
-		if mmPostList == nil {
-			continue
-		}
-		// traverse the order in reverse
-		for i := len(mmPostList.Order) - 1; i >= 0; i-- {
-			p := mmPostList.Posts[mmPostList.Order[i]]
-			if p.Type == model.PostTypeJoinLeave {
-				continue
-			}
-
-			if p.DeleteAt > p.CreateAt {
-				continue
-			}
-
-			// GetPostsSince will return older messages with reaction
-			// changes since LastViewedAt. This will be confusing as
-			// the user will think it's a duplicate, or a post out of
-			// order. Plus, we don't show reaction changes when
-			// relaying messages/logs so let's skip these.
-			if p.CreateAt < since {
-				continue
-			}
-
-			ts := time.Unix(0, p.CreateAt*int64(time.Millisecond))
-
-			props := p.GetProps()
-			botname, override := props["override_username"].(string)
-			user := u.br.GetUser(p.UserId)
-			nick := user.Nick
-			if override {
-				nick = botname
-			}
-
-			if p.Type == model.PostTypeAddToTeam || p.Type == model.PostTypeRemoveFromTeam {
-				nick = systemUser
-			}
-
-			for _, post := range strings.Split(p.Message, "\n") {
-				if showReplayHdr {
-					date := ts.Format("2006-01-02 15:04:05")
-					if brchannel.DM {
-						spoof(nick, fmt.Sprintf("\x02Replaying msgs since %s\x0f", date))
-					} else {
-						spoof("matterircd", fmt.Sprintf("\x02Replaying msgs since %s\x0f", date))
-					}
-					logger.Infof("Replaying msgs for %s for %s (%s) since %s (%s)", u.Nick, channame, brchannel.ID, date, logSince)
-					showReplayHdr = false
-				}
-
-				replayMsg := fmt.Sprintf("[%s] %s", ts.Format("15:04"), post)
-				if (u.v.GetBool(u.br.Protocol()+".prefixcontext") || u.v.GetBool(u.br.Protocol()+".suffixcontext")) && (u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost" || u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost+post") && nick != systemUser {
-					threadMsgID := u.prefixContext("", p.Id, p.RootId, "")
-					replayMsg = u.formatContextMessage(ts.Format("15:04"), threadMsgID, post)
-				}
-				spoof(nick, replayMsg)
-			}
-
-			if len(p.FileIds) == 0 {
-				continue
-			}
-
-			for _, fname := range u.br.GetFileLinks(p.FileIds) {
-				fileMsg := "download file - " + fname
-				if u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost" || u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost+post" {
-					threadMsgID := u.prefixContext("", p.Id, p.RootId, "")
-					fileMsg = u.formatContextMessage(ts.Format("15:04"), threadMsgID, fileMsg)
-				}
-				spoof(nick, fileMsg)
-			}
-		}
-
-		if len(mmPostList.Order) > 0 {
-			if !u.v.GetBool(u.br.Protocol() + ".disableautoview") {
-				u.updateLastViewed(brchannel.ID)
-			}
-			u.saveLastViewedAt(brchannel.ID)
-		}
-	}
 }
 
 func (u *User) MsgUser(toUser *User, msg string) {
@@ -859,19 +668,9 @@ func (u *User) loginTo(protocol string) error {
 	var err error
 
 	switch protocol {
-	case "mastodon":
+	case "deltachat":
 		u.eventChan = make(chan *bridge.Event)
-		u.br, err = mastodon.New(u.v, u.Credentials, u.eventChan, u.addUsersToChannels)
-	case "slack":
-		u.eventChan = make(chan *bridge.Event)
-		u.br, err = slack.New(u.v, u.Credentials, u.eventChan, u.addUsersToChannels)
-	case "mattermost":
-		u.eventChan = make(chan *bridge.Event)
-		if strings.HasPrefix(u.getMattermostVersion(), "6.") || strings.HasPrefix(u.getMattermostVersion(), "7.") {
-			u.br, _, err = mattermost.New(u.v, u.Credentials, u.eventChan, u.addUsersToChannels)
-		} else {
-			return fmt.Errorf("mattermost version %s not supported", u.getMattermostVersion())
-		}
+		u.br, err = deltachat.New(u.v, u.Credentials, u.eventChan, u.onConnect)
 	}
 	if err != nil {
 		return err
@@ -886,14 +685,6 @@ func (u *User) loginTo(protocol string) error {
 	u.Me = true
 	u.User = info.User
 	u.MentionKeys = info.MentionKeys
-
-	err = u.lastViewedAtDB.Update(func(tx *bolt.Tx) error {
-		_, err2 := tx.CreateBucketIfNotExists([]byte(u.User))
-		return err2
-	})
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -951,20 +742,6 @@ func (u *User) prefixContextModified(channelID, messageID string) string {
 }
 
 func (u *User) prefixContext(channelID, messageID, parentID, event string) string {
-	if u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost" || u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost+post" {
-		if parentID == "" {
-			return fmt.Sprintf("[@@%s]", messageID)
-		}
-		prefixChar := "->"
-		if u.v.GetBool(u.br.Protocol() + ".unicode") {
-			prefixChar = "↪"
-		}
-		if u.v.GetString(u.br.Protocol()+".threadcontext") == "mattermost" || parentID == messageID {
-			return fmt.Sprintf("[%s@@%s]", prefixChar, parentID)
-		}
-		return fmt.Sprintf("[%s@@%s,@@%s]", prefixChar, parentID, messageID)
-	}
-
 	u.msgMapMutex.Lock()
 	defer u.msgMapMutex.Unlock()
 
@@ -1003,61 +780,6 @@ func (u *User) prefixContext(channelID, messageID, parentID, event string) strin
 	}
 
 	return fmt.Sprintf("[%03x]", currentcount)
-}
-
-func (u *User) updateLastViewed(channelID string) {
-	u.updateCounterMutex.Lock()
-	defer u.updateCounterMutex.Unlock()
-	if t, ok := u.updateCounter[channelID]; ok {
-		if time.Since(t) < time.Second*5 {
-			return
-		}
-	}
-
-	u.updateCounter[channelID] = time.Now()
-
-	go func() {
-		rand.Seed(time.Now().UnixNano())
-		r := rand.Intn(3000)
-		time.Sleep(time.Duration(r) * time.Millisecond)
-		u.br.UpdateLastViewed(channelID)
-	}()
-}
-
-func (u *User) saveLastViewedAt(channelID string) {
-	if channelID == "" {
-		return
-	}
-
-	currentTime := make([]byte, 8)
-	binary.LittleEndian.PutUint64(currentTime, uint64(model.GetMillis()))
-
-	err := u.lastViewedAtDB.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(u.User))
-		err := b.Put([]byte(channelID), currentTime)
-		return err
-	})
-	if err != nil {
-		logger.Fatal(err)
-	}
-}
-
-func (u *User) getMattermostVersion() string {
-	proto := "https"
-
-	if u.v.GetBool("mattermost.insecure") {
-		proto = "http"
-	}
-
-	resp, err := http.Get(proto + "://" + u.Credentials.Server)
-	if err != nil {
-		logger.Errorf("Failed to get mattermost version: %s", err)
-		return ""
-	}
-
-	defer resp.Body.Close()
-
-	return resp.Header.Get("X-Version-Id")
 }
 
 func (u *User) handleMessageThreadContext(channelID, messageID, parentID, event, text string) (string, string, string, bool, int) {

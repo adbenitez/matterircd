@@ -1,0 +1,94 @@
+# interface:port to bind to. (default "127.0.0.1:6667")
+bind = "127.0.0.1:6667"
+
+# enable debug logging (default false)
+debug = false
+
+# enable trace logging (default false)
+trace = false
+
+# enable gops agent (https://github.com/google/gops)
+# used to track down memory leaks/cpu profiling
+# default false
+gops = false
+
+# TLS interface:port to bind to. (e.g 127.0.0.1:6697) (deault "")
+#
+#TLSBind = "127.0.0.1:6697"
+
+# directory to look for key.pem and cert.pem. (default ".")
+#
+#TLSDir = "/etc/pki/tls/deltaircd/"
+
+# Specify the full path for your key and cert
+#TLSKey = "/etc/pki/tls/deltaircd/key.pem"
+#TLSCert = "/etc/pki/tls/deltaircd/cer.pem"
+
+# Override handshake timeout (in seconds)
+#HandshakeTimeout = 10
+# Override client timeout (in seconds)
+#ClientTimeout = 10
+
+# PasteBufferTimeout specifies the amount of time in milliseconds that
+# messages get kept in deltaircd internal buffer before being sent to
+# Delta Chat.
+# Messages that will be received in this time will be concatenated together
+# So this can be used to paste stuff like ansi-art or code.
+# default 0 (is disabled)
+# Depending on how fast you type 2500 is a good number
+PasteBufferTimeout = 2500
+
+##################################
+##### DELTACHAT EXAMPLE ##########
+##################################
+[deltachat]
+# Path to Delta Chat accounts folder. If not provided "accounts" folder in the current working directory
+# will be used.
+# default ""
+accounts="~/.config/DeltaChat/accounts"
+
+# Only join channels when someone talks. This stops from cluttering your
+# IRC client with lots of windows.
+# If set to false channels will be joined on startup and not only on talk in the channel.
+# default false
+SkipJoinOnStart = true
+
+# An array of channels that only will be joined on IRC. JoinExlude and JoinInclude will not be checked
+# regexp is supported
+# If it's empty, it means all channels get joined (except those defined in JoinExclude)
+# Messages that get sent to unjoined channels (but you're joined on Delta Chat) will
+# get sent to the &messages channel.
+# default ""
+#
+#JoinOnly = ["#onlythischannel"]
+
+# An array of channels that won't be joined on IRC.
+# regexp is supported
+# Messages that get sent to unjoined channels (but you're joined on Delta Chat) will
+# get sent to the &messages channel.
+# You can still /JOIN exclude channels.
+# default ""
+#
+#JoinExclude = ["#town-square","#boringchannel","#.*marketing.*"]
+
+# An array of channels that will override the settings in JoinExclude
+# regexp is supported
+# If it's empty, it means all channels get joined (except those defined in JoinExclude)
+# Messages that get sent to unjoined channels (but you're joined on Delta Chat) will
+# get sent to the &messages channel.
+# default ""
+#
+#JoinInclude = ["#devops","#myteam-marketing"]
+
+# This will add a number between 000 and fff to each message
+# This number will be referenced when a message is replied or a reaction
+PrefixContext = false
+
+# PartFake: a bool that defines if you do a /LEAVE or /PART on IRC it will also
+# actually leave the group on Delta Chat.
+# if false it actually leaves the groups on Delta Chat
+# if true it removes the channel from irc, but you're still joined on Delta Chat, messages
+# of this channel will be sent to &messages channel
+# default false
+#
+PartFake = true

@@ -35,9 +35,6 @@ type Bridger interface {
 	GetChannels() []*ChannelInfo
 	GetChannel(channelID string) (*ChannelInfo, error)
 	GetChannelName(channelID string) string
-	GetLastViewedAt(channelID string) int64
-	UpdateLastViewed(channelID string)
-	UpdateLastViewedUser(userID string) error
 	GetChannelID(name, teamID string) string
 
 	GetChannelUsers(channelID string) ([]*UserInfo, error)

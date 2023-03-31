@@ -11,12 +11,12 @@
 
 # prefixcontext
 
+(**WARNING:** Not supported yet)
+
 When enabling this you'll get a hex number between [000] and [fff] prefixed to each message.
 Every channel/direct message will have a seperate counter.
 
 This way you can see what operation has happened on which message.
-
-(Only support for mattermost right now)
 
 ## view edit/delete of other users
 
@@ -47,7 +47,7 @@ Now you can also see those reactions, in future versions this may become unicode
 
 ## view threads
 
-You can also see who replied to what thread
+You can also see who replied to what message
 [replynumber->threadnumber]
 
 ```irc
@@ -62,9 +62,9 @@ You can also see who replied to what thread
 20:01 <@wim> [002] added reaction: money_mouth_face
 ```
 
-## reply to threads
+## reply to messages
 
-With `@@number` you can reply to a message and it'll be threaded in mattermost
+With `@@number` you can reply to a message and it'll be a quote-reply in Delta Chat
 
 ```irc
 21:55 <wim> [001] abc

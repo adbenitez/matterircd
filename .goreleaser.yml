@@ -23,9 +23,9 @@ builds:
 
 archives:
   -
-    id: matterircd
+    id: deltaircd
     builds:
-    - matterircd
+    - deltaircd
     name_template: "{{ .Binary }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
     format: binary
     files:

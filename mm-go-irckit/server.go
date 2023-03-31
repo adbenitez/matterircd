@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/42wim/matterircd/bridge"
+	"github.com/deltachat/deltaircd/bridge"
 	"github.com/sorcix/irc"
 )
 
@@ -317,9 +317,9 @@ func (s *server) welcome(u *User) error {
 			Trailing: fmt.Sprintf("This server was created %s", s.created.Format(time.UnixDate)),
 		},
 		&irc.Message{
-			Prefix:   s.Prefix(),
-			Command:  irc.RPL_MYINFO,
-			Params:   []string{u.Nick, s.config.Name, s.config.Version, "o", "o"},
+			Prefix:  s.Prefix(),
+			Command: irc.RPL_MYINFO,
+			Params:  []string{u.Nick, s.config.Name, s.config.Version, "o", "o"},
 		},
 		&irc.Message{
 			Prefix:   s.Prefix(),
@@ -426,7 +426,6 @@ outerloop:
 			}
 
 			// apparently NICK message can have a : prefix on connection
-			// https://github.com/42wim/matterircd/issues/32
 			if (msg.Command == irc.NICK || msg.Command == irc.PASS) && msg.Trailing != "" {
 				msg.Params = append(msg.Params, msg.Trailing)
 			}
@@ -478,10 +477,7 @@ outerloop:
 
 			err := s.welcome(u)
 			if err == nil && u.Pass != nil {
-				service := "mattermost"
-				if len(u.Pass) == 1 {
-					service = "slack"
-				}
+				service := "deltachat"
 				login(u, &User{
 					UserInfo: &bridge.UserInfo{
 						Nick: service,

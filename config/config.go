@@ -15,7 +15,7 @@ func LoadConfig(cfgfile string) (*viper.Viper, error) {
 	v := viper.New()
 	v.SetConfigFile(cfgfile)
 
-	v.SetEnvPrefix("matterircd")
+	v.SetEnvPrefix("deltaircd")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	// use environment variables
 	v.AutomaticEnv()

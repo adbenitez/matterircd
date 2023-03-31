@@ -278,7 +278,7 @@ func CmdNick(s Server, u *User, msg *irc.Message) error {
 		s.RenameUser(u, msg.Params[0])
 		return nil
 	}
-	// only update mattermost nick if we're logged in
+	// only update Delta Chat nick if we're logged in
 	err := u.br.Nick(msg.Params[0])
 	if err != nil {
 		s.EncodeMessage(u, irc.ERR_ERRONEUSNICKNAME, []string{u.Nick}, "Erroneus nickname")
@@ -307,7 +307,7 @@ func CmdPart(s Server, u *User, msg *irc.Message) error {
 		}
 		// first part on irc
 		ch.Part(u, msg.Trailing)
-		// now part on mattermost/slack
+		// now part on Delta Chat
 		if !u.v.GetBool(u.br.Protocol() + ".PartFake") {
 			err = u.br.Part(ch.ID())
 			if err != nil {
@@ -399,7 +399,6 @@ func CmdPrivMsg(s Server, u *User, msg *irc.Message) error {
 		u.msgLastMutex.Lock()
 		defer u.msgLastMutex.Unlock()
 		u.msgLast[ch.ID()] = [2]string{msgID, ""}
-		u.saveLastViewedAt(ch.ID())
 
 		if u.v.GetBool(u.br.Protocol()+".prefixcontext") || u.v.GetBool(u.br.Protocol()+".suffixcontext") {
 			u.prefixContext(ch.ID(), msgID, "", "")
@@ -411,7 +410,7 @@ func CmdPrivMsg(s Server, u *User, msg *irc.Message) error {
 	// or a user
 	if toUser, exists := s.HasUser(query); exists {
 		switch {
-		case query == "mattermost" || query == "slack" || query == "mastodon": //nolint:goconst
+		case query == "deltachat": //nolint:goconst
 			go u.handleServiceBot(query, toUser, msg.Trailing)
 			msg.Trailing = "<redacted>"
 		case toUser.Ghost, toUser.Me:
@@ -440,7 +439,6 @@ func CmdPrivMsg(s Server, u *User, msg *irc.Message) error {
 			u.msgLastMutex.Lock()
 			defer u.msgLastMutex.Unlock()
 			u.msgLast[toUser.User] = [2]string{msgID, ""}
-			u.saveLastViewedAt(toUser.User)
 
 			if u.v.GetBool(u.br.Protocol()+".prefixcontext") || u.v.GetBool(u.br.Protocol()+".suffixcontext") {
 				u.prefixContext(toUser.User, msgID, "", "")
@@ -467,7 +465,7 @@ func parseReactionToMsg(u *User, msg *irc.Message, channelID string) bool {
 	action := matches[2]
 	emoji := matches[3]
 
-	// matterircd style prefix/suffix contexts (e.g. 001 and fa2).
+	// deltaircd style prefix/suffix contexts (e.g. 001 and fa2).
 	if len(msgID) == 3 {
 		id, err := strconv.ParseInt(msgID, 16, 0)
 		if err != nil {
@@ -532,13 +530,7 @@ func parseModifyMsg(u *User, msg *irc.Message, channelID string) bool {
 		if msgLast, ok := u.msgLast[channelID]; ok {
 			msgID = msgLast[0]
 		}
-	// Mattermost message/thread ID (e.g. 'cfrakpwix7y8pgzux6ta76pm9c')
-	case len(matches[1]) == 28:
-		msgID = strings.ReplaceAll(matches[1], "/", "")
-		u.msgLastMutex.Lock()
-		defer u.msgLastMutex.Unlock()
-		u.msgLast[channelID] = [2]string{msgID, ""}
-	// matterircd message/thread ID (e.g. '004' and 'a12')
+	// deltaircd message ID (e.g. '004' and 'a12')
 	case len(matches[1]) == 5:
 		id, err := strconv.ParseInt(strings.ReplaceAll(matches[1], "/", ""), 16, 0)
 		if err != nil {
@@ -575,8 +567,6 @@ func parseModifyMsg(u *User, msg *irc.Message, channelID string) bool {
 			return false
 		}
 		u.MsgSpoofUser(u, u.br.Protocol(), "msg: "+text+" could not be modified "+err.Error())
-	} else {
-		u.saveLastViewedAt(channelID)
 	}
 
 	return true
@@ -654,7 +644,6 @@ func threadMsgChannelUser(u *User, msg *irc.Message, channelID string, toUser bo
 	u.msgLastMutex.Lock()
 	defer u.msgLastMutex.Unlock()
 	u.msgLast[channelID] = [2]string{msgID, threadID}
-	u.saveLastViewedAt(channelID)
 
 	if u.v.GetBool(u.br.Protocol()+".prefixcontext") || u.v.GetBool(u.br.Protocol()+".suffixcontext") {
 		u.prefixContext(channelID, msgID, "", "")

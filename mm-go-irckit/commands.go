@@ -17,7 +17,7 @@ type Handler struct {
 	Call func(s Server, u *User, msg *irc.Message) error
 	// MinParams is the minimum number of params required on the message.
 	MinParams int
-	// LoggedIn is true when authenticated (logged in) against mattermost
+	// LoggedIn is true when authenticated (logged in) against Delta Chat
 	LoggedIn bool
 }
 
