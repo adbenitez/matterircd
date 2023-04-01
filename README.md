@@ -6,8 +6,7 @@
 
 - support direct messages / private channels
 - auto-join/leave to same channels as on Delta Chat
-- reconnects with backoff on Delta Chat restarts
-- support multiple users
+- support multiple users (one Delta Chat accounts per IRC user/connection)
 - support channel/direct message backlog (messages when you're disconnected from IRC/Delta Chat)
 - WHOIS, WHO, JOIN, LEAVE, NICK, LIST, ISON, PRIVMSG, MODE, TOPIC, LUSERS, AWAY, KICK, INVITE support
 - support TLS (ssl)
