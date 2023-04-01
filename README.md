@@ -1,6 +1,6 @@
 <img height="180" width="100%" src="https://github.com/deltachat/deltaircd/raw/master/images/logo.svg" alt="deltaircd">
 
-Minimal IRC server which integrates with [Delta Chat](https://delta.chat)
+<p align="center">Minimal IRC server which integrates with <a href="https://delta.chat">Delta Chat</a></p>
 
 ## Features
 
