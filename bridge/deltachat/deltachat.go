@@ -23,7 +23,7 @@ type DeltaChat struct {
 
 var (
 	logger *logrus.Entry
-	rpc  *deltachat.RpcIO
+	rpc    *deltachat.RpcIO
 )
 
 func New(cfg *viper.Viper, cred bridge.Credentials, eventChan chan<- *bridge.Event, onConnect func()) (bridge.Bridger, error) {
@@ -64,7 +64,10 @@ func (self *DeltaChat) loginToDeltaChat() error {
 	manager := deltachat.AccountManager{rpc}
 	accounts, _ := manager.Accounts()
 
-	if self.credentials.Login != "" {
+	isBackupLink := strings.HasPrefix(self.credentials.Login, "DCBACKUP:")
+	if isBackupLink {
+		self.account, _ = manager.AddAccount()
+	} else if self.credentials.Login != "" {
 		for _, acc := range accounts {
 			addr, _ := acc.GetConfig("addr")
 			if addr == self.credentials.Login {
@@ -88,7 +91,14 @@ func (self *DeltaChat) loginToDeltaChat() error {
 		}
 	}
 
-	if self.credentials.Pass != "" {
+	if isBackupLink {
+		logger.Debugf("Configuring account from another device...")
+		if err := self.account.GetBackup(self.credentials.Login); err != nil {
+			return err
+		} else {
+			self.account.StartIO()
+		}
+	} else if self.credentials.Pass != "" {
 		logger.Debugf("Configuring account %v...", self.credentials.Login)
 		self.account.SetConfig("addr", self.credentials.Login)
 		self.account.SetConfig("mail_pw", self.credentials.Pass)

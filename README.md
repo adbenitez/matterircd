@@ -15,6 +15,7 @@
 - &users channel that contains all your contacts for easy messaging
 - support for including/excluding channels from showing up in IRC
 - support multiline pasting
+- support for adding account as second device (importing account from different device)
 - TODO: prefixcontext option (see <https://github.com/deltachat/deltaircd/blob/master/prefixcontext.md>)
   - TODO: replies support
   - TODO: reactions support
@@ -73,6 +74,12 @@ Configure a new account with email/pass and login into it
 
 ```
 /msg deltachat login <email> <password>
+```
+
+Add account as second device (importing account from different device)
+
+```
+/msg deltachat login DCBACKUP:...
 ```
 
 Login into existing previously configured accout
