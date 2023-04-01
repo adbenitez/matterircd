@@ -8,7 +8,6 @@ import (
 
 	"github.com/deltachat/deltachat-rpc-client-go/deltachat"
 	"github.com/deltachat/deltaircd/bridge"
-	logger "github.com/sirupsen/logrus"
 )
 
 func (self *DeltaChat) GetMe() *bridge.UserInfo {

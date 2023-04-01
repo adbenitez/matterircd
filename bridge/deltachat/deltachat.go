@@ -7,7 +7,8 @@ import (
 
 	"github.com/deltachat/deltachat-rpc-client-go/deltachat"
 	"github.com/deltachat/deltaircd/bridge"
-	logger "github.com/sirupsen/logrus"
+	prefixed "github.com/matterbridge/logrus-prefixed-formatter"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -20,6 +21,8 @@ type DeltaChat struct {
 	connected   bool
 }
 
+var logger *logrus.Entry
+
 func New(cfg *viper.Viper, cred bridge.Credentials, eventChan chan<- *bridge.Event, onConnect func()) (bridge.Bridger, error) {
 	dc := &DeltaChat{
 		credentials: cred,
@@ -28,13 +31,18 @@ func New(cfg *viper.Viper, cred bridge.Credentials, eventChan chan<- *bridge.Eve
 		onConnect:   onConnect,
 	}
 
-	logger.SetFormatter(&logger.TextFormatter{FullTimestamp: true})
+	ourlog := logrus.New()
+	ourlog.SetFormatter(&prefixed.TextFormatter{
+		PrefixPadding: 17,
+		FullTimestamp: true,
+	})
+	logger = ourlog.WithFields(logrus.Fields{"prefix": "bridge/deltachat"})
 	if cfg.GetBool("debug") {
-		logger.SetLevel(logger.DebugLevel)
+		ourlog.SetLevel(logrus.DebugLevel)
 	}
 
 	if cfg.GetBool("trace") {
-		logger.SetLevel(logger.TraceLevel)
+		ourlog.SetLevel(logrus.TraceLevel)
 	}
 
 	if err := dc.loginToDeltaChat(); err != nil {
