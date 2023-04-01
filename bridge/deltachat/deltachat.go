@@ -21,7 +21,10 @@ type DeltaChat struct {
 	connected   bool
 }
 
-var logger *logrus.Entry
+var (
+	logger *logrus.Entry
+	rpc  *deltachat.RpcIO
+)
 
 func New(cfg *viper.Viper, cred bridge.Credentials, eventChan chan<- *bridge.Event, onConnect func()) (bridge.Bridger, error) {
 	dc := &DeltaChat{
@@ -52,9 +55,11 @@ func New(cfg *viper.Viper, cred bridge.Credentials, eventChan chan<- *bridge.Eve
 }
 
 func (self *DeltaChat) loginToDeltaChat() error {
-	rpc := deltachat.NewRpcIO()
-	rpc.AccountsDir = self.cfg.GetString(self.Protocol() + ".accounts")
-	rpc.Start()
+	if rpc == nil {
+		rpc = deltachat.NewRpcIO()
+		rpc.AccountsDir = self.cfg.GetString(self.Protocol() + ".accounts")
+		rpc.Start()
+	}
 
 	manager := deltachat.AccountManager{rpc}
 	accounts, _ := manager.Accounts()
