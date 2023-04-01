@@ -92,7 +92,6 @@ var cmds = map[string]Command{
 }
 
 func (u *User) handleServiceBot(service string, toUser *User, msg string) {
-	// func (u *User) handleMMServiceBot(toUser *User, msg string) {
 	commands, err := parseCommandString(msg)
 	if err != nil {
 		u.MsgUser(toUser, fmt.Sprintf("\"%s\" is improperly formatted", msg))
