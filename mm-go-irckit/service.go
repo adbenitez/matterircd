@@ -85,7 +85,7 @@ func scrollback(u *User, toUser *User, args []string, service string) {
 
 var cmds = map[string]Command{
 	"logout":      {handler: logout, login: true, minParams: 0, maxParams: 0},
-	"login":       {handler: login, minParams: 2, maxParams: 5},
+	"login":       {handler: login, minParams: 0, maxParams: 2},
 	"search":      {handler: search, login: true, minParams: 1, maxParams: -1},
 	"searchusers": {handler: searchUsers, login: true, minParams: 1, maxParams: -1},
 	"scrollback":  {handler: scrollback, login: true, minParams: 2, maxParams: 2},
