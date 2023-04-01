@@ -291,6 +291,20 @@ func (self *DeltaChat) GetPosts(channelID string, limit int) interface{} {
 	return msgs[maxIndex-limit:] // FIXME: fix scrollback()
 }
 
+func (self *DeltaChat) SearchUsers(query string) ([]*bridge.UserInfo, error) {
+	contacts, err := self.account.QueryContacts(query, 0)
+	var users []*bridge.UserInfo
+	if err != nil {
+		return users, err
+	}
+	users = make([]*bridge.UserInfo, len(contacts))
+	for i := range contacts {
+		contact, _ := contacts[i].Snapshot()
+		users[i] = self.getUserInfo(contact)
+	}
+	return users, nil
+}
+
 func (self *DeltaChat) GetTeamName(teamID string) string {
 	return ""
 }
@@ -331,7 +345,6 @@ func (self *DeltaChat) RemoveReaction(msgID, emoji string) error { return nil }
 
 func (self *DeltaChat) GetPostsSince(channelID string, since int64) interface{} { return nil }
 
-func (self *DeltaChat) SearchUsers(query string) ([]*bridge.UserInfo, error) { return nil, nil }
 func (self *DeltaChat) SearchPosts(search string) interface{}                { return nil }
 func (self *DeltaChat) GetUser(userID string) *bridge.UserInfo               { return nil }
 func (self *DeltaChat) GetUserByUsername(username string) *bridge.UserInfo   { return nil }

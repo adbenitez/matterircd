@@ -67,11 +67,6 @@ func search(u *User, toUser *User, args []string, service string) {
 }
 
 func searchUsers(u *User, toUser *User, args []string, service string) {
-	if service == "slack" {
-		u.MsgUser(toUser, "not implemented")
-		return
-	}
-
 	users, err := u.br.SearchUsers(strings.Join(args, " "))
 	if err != nil {
 		u.MsgUser(toUser, fmt.Sprint("Error", err.Error()))
