@@ -365,7 +365,7 @@ func CmdPrivMsg(s Server, u *User, msg *irc.Message) error {
 	if strings.HasPrefix(msg.Trailing, "\x01ACTION ") {
 		msg.Trailing = strings.ReplaceAll(msg.Trailing, "\x01ACTION ", "")
 		msg.Trailing = strings.ReplaceAll(msg.Trailing, "\x01", "")
-		msg.Trailing = "*" + msg.Trailing + "*"
+		msg.Trailing = "/me " + msg.Trailing
 	}
 	// strip IRC colors
 	re := regexp.MustCompile(`\x03([019]?[0-9](,[019]?[0-9])?)?`)
