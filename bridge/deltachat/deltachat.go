@@ -10,6 +10,7 @@ import (
 	prefixed "github.com/matterbridge/logrus-prefixed-formatter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 type DeltaChat struct {
@@ -57,7 +58,11 @@ func New(cfg *viper.Viper, cred bridge.Credentials, eventChan chan<- *bridge.Eve
 func (self *DeltaChat) loginToDeltaChat() error {
 	if rpc == nil {
 		rpc = deltachat.NewRpcIO()
-		rpc.AccountsDir = self.cfg.GetString(self.Protocol() + ".accounts")
+		path, err := homedir.Expand(self.cfg.GetString(self.Protocol() + ".accounts"))
+		if err != nil {
+			return err
+		}
+		rpc.AccountsDir = path
 		rpc.Start()
 	}
 
