@@ -36,10 +36,11 @@ type Bridger interface {
 	GetChannel(channelID string) (*ChannelInfo, error)
 	GetChannelName(channelID string) string
 	GetChannelID(name, teamID string) string
+	GetUserChannelID(name, teamID string) string
 
 	GetChannelUsers(channelID string) ([]*UserInfo, error)
 	GetUsers() []*UserInfo
-	GetUser(userID string) *UserInfo
+	GetUser(userID interface{}) *UserInfo
 	GetMe() *UserInfo
 	GetUserByUsername(username string) *UserInfo
 	SearchUsers(query string) ([]*UserInfo, error)

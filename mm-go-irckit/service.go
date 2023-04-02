@@ -3,6 +3,7 @@ package irckit
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -72,7 +73,7 @@ func search(u *User, toUser *User, args []string, service string) {
 		return
 	}
 
-	for i := len(posts)-1; i >= 0; i-- {
+	for i := len(posts) - 1; i >= 0; i-- {
 		post := posts[i]
 		timestamp := time.Unix(post.Timestamp, 0).Format("January 02, 2006 15:04")
 		header := "<" + post.AuthorName + "> " + timestamp
@@ -103,7 +104,95 @@ func searchUsers(u *User, toUser *User, args []string, service string) {
 
 //nolint:funlen,gocognit,gocyclo,cyclop
 func scrollback(u *User, toUser *User, args []string, service string) {
-	u.MsgUser(toUser, "not implemented yet")
+	if len(args) != 2 {
+		u.MsgUser(toUser, "need SCROLLBACK (#<channel>|<user>) <lines>")
+		u.MsgUser(toUser, "e.g. SCROLLBACK #bugs 10 (show last 10 lines from #bugs)")
+		return
+	}
+
+	limit, err := strconv.Atoi(args[1])
+	if err != nil {
+		u.MsgUser(toUser, "need SCROLLBACK (#<channel>|<user>) <lines>")
+		u.MsgUser(toUser, "e.g. SCROLLBACK #bugs 10 (show last 10 lines from #bugs)")
+		return
+	}
+
+	var channelID string
+	var spoof func(string, string, ...int)
+	scrollbackUser, exists := u.Srv.HasUser(args[0])
+
+	switch {
+	case strings.HasPrefix(args[0], "#"):
+		channelName := strings.ReplaceAll(args[0], "#", "")
+		channelID = u.br.GetChannelID(channelName, u.br.GetMe().TeamID)
+		spoof = u.Srv.Channel(channelID).SpoofMessage
+	case exists && scrollbackUser.Ghost:
+		channelID = u.br.GetUserChannelID(scrollbackUser.User, u.br.GetMe().TeamID)
+	default:
+		u.MsgUser(toUser, "need SCROLLBACK (#<channel>|<user>) <lines>")
+		u.MsgUser(toUser, "e.g. SCROLLBACK #bugs 10 (show last 10 lines from #bugs)")
+		return
+	}
+
+	posts, ok := u.br.GetPosts(channelID, limit).([]*deltachat.Message)
+	if !ok || posts == nil || len(posts) == 0 {
+		u.MsgUser(toUser, "no results")
+		return
+	}
+
+	for i := range posts {
+		msgData, err := posts[i].Snapshot()
+		if err != nil {
+			continue
+		}
+		ts := time.Unix(0, int64(msgData.ReceivedTimestamp))
+		u.MsgUser(toUser, fmt.Sprintf("Timestamp: %s", msgData.Timestamp))
+		u.MsgUser(toUser, fmt.Sprintf("SortTimestamp: %s", msgData.SortTimestamp))
+		u.MsgUser(toUser, fmt.Sprintf("ReceivedTimestamp: %s", msgData.ReceivedTimestamp))
+
+		user := u.br.GetUser(msgData.Sender)
+		nick := user.Nick
+		if msgData.IsInfo {
+			nick = "system"
+		} else if msgData.OverrideSenderName != "" {
+			nick = msgData.OverrideSenderName
+		}
+
+		text := msgData.Text
+		if msgData.File != "" {
+			if text != "" {
+				text = msgData.File + "\n" + text
+			} else {
+				text = msgData.File
+			}
+		}
+		for _, post := range strings.Split(text, "\n") {
+			switch { // nolint:dupl
+			case u.v.GetBool(u.br.Protocol()+".prefixcontext") && strings.HasPrefix(args[0], "#") && nick != "system":
+				quotedId := ""
+				if msgData.Quote != nil && msgData.Quote.MessageId != 0 {
+					quotedId = strconv.FormatUint(msgData.Quote.MessageId, 10)
+				}
+				threadMsgID := u.prefixContext("", strconv.FormatUint(msgData.Id, 10), quotedId, "")
+				scrollbackMsg := u.formatContextMessage(ts.Format("2006-01-02 15:04"), threadMsgID, post)
+				spoof(nick, scrollbackMsg)
+			case strings.HasPrefix(args[0], "#"):
+				scrollbackMsg := "[" + ts.Format("2006-01-02 15:04") + "] " + post
+				spoof(nick, scrollbackMsg)
+			case u.v.GetBool(u.br.Protocol()+".prefixcontext"):
+				quotedId := ""
+				if msgData.Quote != nil && msgData.Quote.MessageId != 0 {
+					quotedId = strconv.FormatUint(msgData.Quote.MessageId, 10)
+				}
+				threadMsgID := u.prefixContext("", strconv.FormatUint(msgData.Id, 10), quotedId, "")
+				scrollbackMsg := u.formatContextMessage(ts.Format("2006-01-02 15:04"), threadMsgID, post)
+				u.MsgSpoofUser(scrollbackUser, nick, scrollbackMsg)
+			default:
+				scrollbackMsg := "[" + ts.Format("2006-01-02 15:04") + "]" + " <" + nick + "> " + post
+				u.MsgSpoofUser(scrollbackUser, nick, scrollbackMsg)
+			}
+		}
+	}
 }
 
 var cmds = map[string]Command{

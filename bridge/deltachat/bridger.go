@@ -268,18 +268,29 @@ func (self *DeltaChat) GetChannelID(name, teamID string) string {
 	return channelID
 }
 
+func (self *DeltaChat) GetUserChannelID(name, teamID string) string {
+	contactId, err := strconv.ParseUint(name, 10, 0)
+	if err != nil {
+		return ""
+	}
+	contact := &deltachat.Contact{self.account, contactId}
+	chat, err := contact.CreateChat()
+	if err != nil {
+		return ""
+	}
+	return strconv.FormatUint(chat.Id, 10)
+}
+
 func (self *DeltaChat) GetPosts(channelID string, limit int) interface{} {
 	if limit < 1 {
 		return nil
 	}
-	//parts := strings.Split(name, "|")
-	//channelID := strings.TrimSpace(parts[len(parts)-1])
 	chatId, err := strconv.ParseUint(channelID, 10, 0)
 	if err != nil {
 		return nil
 	}
 
-	chat := deltachat.Chat{self.account, chatId}
+	chat := &deltachat.Chat{self.account, chatId}
 	msgs, err := chat.Messages(false, false)
 	if err != nil {
 		return nil
@@ -303,6 +314,14 @@ func (self *DeltaChat) SearchUsers(query string) ([]*bridge.UserInfo, error) {
 		users[i] = self.getUserInfo(contact)
 	}
 	return users, nil
+}
+
+func (self *DeltaChat) GetUser(userID interface{}) *bridge.UserInfo             {
+	contact, ok := userID.(*deltachat.ContactSnapshot)
+	if !ok {
+		return nil
+	}
+	return self.getUserInfo(contact)
 }
 
 func (self *DeltaChat) SearchPosts(search string) interface{} {
@@ -350,5 +369,4 @@ func (self *DeltaChat) RemoveReaction(msgID, emoji string) error { return nil }
 
 func (self *DeltaChat) GetPostsSince(channelID string, since int64) interface{} { return nil }
 
-func (self *DeltaChat) GetUser(userID string) *bridge.UserInfo             { return nil }
 func (self *DeltaChat) GetUserByUsername(username string) *bridge.UserInfo { return nil }

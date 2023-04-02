@@ -17,11 +17,11 @@
 - support for adding account as second device (importing account from different device)
 - search users (/msg deltachat searchusers query)
 - search messages (/msg deltachat search query)
+- scrollback support (/msg deltachat scrollback #channel limit)
 - TODO: prefixcontext option (see <https://github.com/deltachat/deltaircd/blob/master/prefixcontext.md>)
   - TODO: replies support
   - TODO: reactions support
   - TODO: delete messages
-- TODO: scrollback support (/msg deltachat scrollback #channel limit)
 
 ## Installing dependencies
 

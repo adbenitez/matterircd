@@ -260,7 +260,7 @@ func (self *DeltaChat) processMsg(msg *deltachat.MsgSnapshot) {
 	text := msg.Text
 	if msg.File != "" {
 		if text != "" {
-			text = msg.File + " - " + text
+			text = msg.File + "\n" + text
 		} else {
 			text = msg.File
 		}
