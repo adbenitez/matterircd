@@ -15,12 +15,12 @@
 - support for including/excluding channels from showing up in IRC
 - support multiline pasting
 - support for adding account as second device (importing account from different device)
-- search users (/msg deltachat searchusers)
+- search users (/msg deltachat searchusers query)
+- search messages (/msg deltachat search query)
 - TODO: prefixcontext option (see <https://github.com/deltachat/deltaircd/blob/master/prefixcontext.md>)
   - TODO: replies support
   - TODO: reactions support
   - TODO: delete messages
-- TODO: search messages (/msg deltachat search query)
 - TODO: scrollback support (/msg deltachat scrollback #channel limit)
 
 ## Installing dependencies

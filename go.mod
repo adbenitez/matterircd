@@ -3,7 +3,7 @@ module github.com/deltachat/deltaircd
 require (
 	github.com/alecthomas/chroma/v2 v2.4.0
 	github.com/davecgh/go-spew v1.1.1
-	github.com/deltachat/deltachat-rpc-client-go v0.10.0
+	github.com/deltachat/deltachat-rpc-client-go v0.11.1
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f
 	github.com/google/gops v0.3.27
 	github.com/matterbridge/logrus-prefixed-formatter v0.5.3-0.20200523233437-d971309a77ba

@@ -436,8 +436,8 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/deltachat/deltachat-rpc-client-go v0.10.0 h1:POahHAYj62MhsxLWOP17QZrrgfMvbIFVXKTBE6BQY8o=
-github.com/deltachat/deltachat-rpc-client-go v0.10.0/go.mod h1:zhFR2IST139T7mmlgcVKrulxZqlVoiYVPlt+gDk3Sqc=
+github.com/deltachat/deltachat-rpc-client-go v0.11.1 h1:XoYNI7y+zoq4HSjTxJjzkiVan8yWg47CnfGlKnAhNs4=
+github.com/deltachat/deltachat-rpc-client-go v0.11.1/go.mod h1:zhFR2IST139T7mmlgcVKrulxZqlVoiYVPlt+gDk3Sqc=
 github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f h1:U5y3Y5UE0w7amNe7Z5G/twsBW0KEalRQXZzf8ufSh9I=
 github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f/go.mod h1:xH/i4TFMt8koVQZ6WFms69WAsDWr2XsYL3Hkl7jkoLE=
 github.com/dlclark/regexp2 v1.4.0 h1:F1rxgk7p4uKjwIQxBs9oAXe5CqrXlCduYEJvrF4u93E=

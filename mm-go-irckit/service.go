@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
+	"github.com/deltachat/deltachat-rpc-client-go/deltachat"
 	"github.com/deltachat/deltaircd/bridge"
 )
 
@@ -63,7 +65,28 @@ func login(u *User, toUser *User, args []string, service string) {
 
 //nolint:cyclop
 func search(u *User, toUser *User, args []string, service string) {
-	u.MsgUser(toUser, "not implemented")
+	posts, ok := u.br.SearchPosts(strings.Join(args, " ")).([]*deltachat.MsgSearchResult)
+
+	if !ok || posts == nil || len(posts) == 0 {
+		u.MsgUser(toUser, "no results")
+		return
+	}
+
+	for i := len(posts)-1; i >= 0; i-- {
+		post := posts[i]
+		timestamp := time.Unix(post.Timestamp, 0).Format("January 02, 2006 15:04")
+		header := "<" + post.AuthorName + "> " + timestamp
+		u.MsgUser(toUser, header)
+		u.MsgUser(toUser, strings.Repeat("=", len(header)))
+
+		for _, post := range strings.Split(post.Message, "\n") {
+			if post != "" {
+				u.MsgUser(toUser, post)
+			}
+		}
+		u.MsgUser(toUser, "")
+		u.MsgUser(toUser, "")
+	}
 }
 
 func searchUsers(u *User, toUser *User, args []string, service string) {

@@ -305,6 +305,11 @@ func (self *DeltaChat) SearchUsers(query string) ([]*bridge.UserInfo, error) {
 	return users, nil
 }
 
+func (self *DeltaChat) SearchPosts(search string) interface{} {
+	msgs, _ := self.account.SearchMessages(search)
+	return msgs
+}
+
 func (self *DeltaChat) GetTeamName(teamID string) string {
 	return ""
 }
@@ -345,6 +350,5 @@ func (self *DeltaChat) RemoveReaction(msgID, emoji string) error { return nil }
 
 func (self *DeltaChat) GetPostsSince(channelID string, since int64) interface{} { return nil }
 
-func (self *DeltaChat) SearchPosts(search string) interface{}                { return nil }
-func (self *DeltaChat) GetUser(userID string) *bridge.UserInfo               { return nil }
-func (self *DeltaChat) GetUserByUsername(username string) *bridge.UserInfo   { return nil }
+func (self *DeltaChat) GetUser(userID string) *bridge.UserInfo             { return nil }
+func (self *DeltaChat) GetUserByUsername(username string) *bridge.UserInfo { return nil }
