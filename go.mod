@@ -5,6 +5,8 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deltachat/deltachat-rpc-client-go v0.11.1
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f
+	github.com/enescakir/emoji v1.0.0
+	github.com/forPelevin/gomoji v1.1.8
 	github.com/google/gops v0.3.27
 	github.com/matterbridge/logrus-prefixed-formatter v0.5.3-0.20200523233437-d971309a77ba
 	github.com/mitchellh/go-homedir v1.1.0
@@ -31,7 +33,7 @@ require (
 	github.com/onsi/gomega v1.27.6 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect

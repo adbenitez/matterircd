@@ -18,10 +18,10 @@
 - search users (/msg deltachat searchusers query)
 - search messages (/msg deltachat search query)
 - scrollback support (/msg deltachat scrollback #channel limit)
-- TODO: prefixcontext option (see <https://github.com/deltachat/deltaircd/blob/master/prefixcontext.md>)
-  - TODO: replies support
-  - TODO: reactions support
-  - TODO: delete messages
+- prefixcontext option (see <https://github.com/deltachat/deltaircd/blob/master/prefixcontext.md>)
+  - send replies
+  - send reactions
+  - delete messages
 
 ## Installing dependencies
 

@@ -92,3 +92,8 @@ PrefixContext = false
 # default false
 #
 PartFake = true
+
+# Disable showing message replies
+HideReplies = false
+# Disable showing reactions
+HideReactions = false

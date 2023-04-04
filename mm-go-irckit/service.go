@@ -161,9 +161,9 @@ func scrollback(u *User, toUser *User, args []string, service string) {
 		text := msgData.Text
 		if msgData.File != "" {
 			if text != "" {
-				text = msgData.File + "\n" + text
+				text = "file://" + msgData.File + "\n" + text
 			} else {
-				text = msgData.File
+				text = "file://" + msgData.File
 			}
 		}
 		for _, post := range strings.Split(text, "\n") {

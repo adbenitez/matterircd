@@ -7,10 +7,11 @@ import (
 
 	"github.com/deltachat/deltachat-rpc-client-go/deltachat"
 	"github.com/deltachat/deltaircd/bridge"
+	"github.com/forPelevin/gomoji"
 	prefixed "github.com/matterbridge/logrus-prefixed-formatter"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	homedir "github.com/mitchellh/go-homedir"
 )
 
 type DeltaChat struct {
@@ -145,6 +146,48 @@ func (self *DeltaChat) handleEvent(event *deltachat.Event) {
 		logger.Debug("WARNING:", event.Msg)
 	case deltachat.EVENT_ERROR:
 		logger.Debug("ERROR:", event.Msg)
+	case deltachat.EVENT_REACTIONS_CHANGED:
+		msg := &deltachat.Message{self.account, event.MsgId}
+		msgData, err := msg.Snapshot()
+		if err != nil {
+			break
+		}
+		reactions := ""
+		var reactionsMap map[string]int
+		if msgData.Reactions != nil {
+			reactionsMap = msgData.Reactions.Reactions
+		}
+		for k, v := range reactionsMap {
+			reactions += fmt.Sprintf("(%v %v) ", replaceEmojisWithSlug(k), v)
+		}
+		if reactions == "" {
+			reactions = "(no reactions)"
+		}
+
+		channelType := ""
+		var user *bridge.UserInfo
+		chat := &deltachat.Chat{self.account, event.ChatId}
+		chatData, err := chat.BasicSnapshot()
+		if err == nil && chatData.ChatType == deltachat.CHAT_TYPE_SINGLE {
+			channelType = "D"
+			contacts, _ := chat.Contacts()
+			contact, _ := contacts[0].Snapshot()
+			user = self.getUserInfo(contact)
+		} else {
+			user = self.GetMe()
+		}
+
+		bridgeEvent := &bridge.Event{
+			Type: "reaction_add",
+			Data: &bridge.ReactionAddEvent{
+				ChannelID:   strconv.FormatUint(msgData.ChatId, 10),
+				MessageID:   strconv.FormatUint(msgData.Id, 10),
+				Sender:      user,
+				Reaction:    reactions,
+				ChannelType: channelType,
+			},
+		}
+		self.eventChan <- bridgeEvent
 	case deltachat.EVENT_INCOMING_MSG:
 		chat := &deltachat.Chat{self.account, event.ChatId}
 		chat.SetMuteDuration(0) // TODO: remove this when there is a way to get fresh messages from muted chats
@@ -256,52 +299,62 @@ func (self *DeltaChat) processMessages() {
 	}
 }
 
-func (self *DeltaChat) processMsg(msg *deltachat.MsgSnapshot) {
-	text := msg.Text
-	if msg.File != "" {
-		if text != "" {
-			text = msg.File + "\n" + text
-		} else {
-			text = msg.File
-		}
-	}
-	logger.Debugf("Processing message (id=%v)", msg.Id)
+func (self *DeltaChat) processMsg(msgData *deltachat.MsgSnapshot) {
+	logger.Debugf("Processing message (id=%v)", msgData.Id)
 
-	ghost := self.getUserInfo(msg.Sender)
+	ghost := self.getUserInfo(msgData.Sender)
 
-	chat := deltachat.Chat{self.account, msg.ChatId}
+	chat := deltachat.Chat{self.account, msgData.ChatId}
 	chatData, _ := chat.BasicSnapshot()
 	channelID := strconv.FormatUint(chat.Id, 10)
+	text := msgData.Text
+	if msgData.File != "" {
+		if text != "" {
+			text = "file://" + msgData.File + "\n" + text
+		} else {
+			text = "file://" + msgData.File
+		}
+	}
+	msgId := strconv.FormatUint(msgData.Id, 10)
+	quotedId := ""
+	if msgData.Quote != nil && msgData.Quote.MessageId != 0 {
+		quotedId = strconv.FormatUint(msgData.Quote.MessageId, 10)
+	}
+
 	if chatData.ChatType == deltachat.CHAT_TYPE_SINGLE {
-		self.sendDirectMessage(ghost, ghost, channelID, msg.Text)
+		self.sendDirectMessage(ghost, ghost, channelID, msgId, quotedId, text)
 	} else {
-		self.sendPublicMessage(ghost, channelID, msg.Text)
+		self.sendPublicMessage(ghost, channelID, msgId, quotedId, text)
 	}
 }
 
-func (self *DeltaChat) sendDirectMessage(sender, receiver *bridge.UserInfo, channelID, text string) {
-	for _, msg := range strings.Split(text, "\n") {
+func (self *DeltaChat) sendDirectMessage(sender, receiver *bridge.UserInfo, channelID, msgID, parentID, text string) {
+	for _, line := range strings.Split(text, "\n") {
 		event := &bridge.Event{
 			Type: "direct_message",
 			Data: &bridge.DirectMessageEvent{
-				Text:      msg,
+				Text:      line,
 				Sender:    sender,
 				Receiver:  receiver,
 				ChannelID: channelID,
+				MessageID: msgID,
+				ParentID:  parentID,
 			},
 		}
 		self.eventChan <- event
 	}
 }
 
-func (self *DeltaChat) sendPublicMessage(ghost *bridge.UserInfo, channelID, text string) {
-	for _, msg := range strings.Split(text, "\n") {
+func (self *DeltaChat) sendPublicMessage(ghost *bridge.UserInfo, channelID, msgID, parentID, text string) {
+	for _, line := range strings.Split(text, "\n") {
 		event := &bridge.Event{
 			Type: "channel_message",
 			Data: &bridge.ChannelMessageEvent{
-				Text:      msg,
+				Text:      line,
 				ChannelID: channelID,
 				Sender:    ghost,
+				MessageID: msgID,
+				ParentID:  parentID,
 			},
 		}
 		self.eventChan <- event
@@ -358,4 +411,10 @@ func sanitizeNick(nick string) string {
 		return r
 	}
 	return strings.Map(sanitize, nick)
+}
+
+func replaceEmojisWithSlug(s string) string {
+	return gomoji.ReplaceEmojisWithFunc(s, func(em gomoji.Emoji) string {
+		return ":" + em.Slug + ":"
+	})
 }

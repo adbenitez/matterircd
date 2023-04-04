@@ -84,7 +84,7 @@ func (u *User) handleEventChan() {
 			u.handleUserUpdateEvent(e)
 		case *bridge.StatusChangeEvent:
 			u.handleStatusChangeEvent(e)
-		case *bridge.ReactionAddEvent, *bridge.ReactionRemoveEvent:
+		case *bridge.ReactionAddEvent:
 			u.handleReactionEvent(e)
 		case *bridge.LogoutEvent:
 			return
@@ -360,32 +360,14 @@ func (u *User) handleStatusChangeEvent(event *bridge.StatusChangeEvent) {
 	}
 }
 
-func (u *User) handleReactionEvent(event interface{}) {
-	var (
-		text, channelID, messageID, channelType, reaction string
-		sender                                            *bridge.UserInfo
-	)
-
-	message := ""
-
-	switch e := event.(type) {
-	case *bridge.ReactionAddEvent:
-		message = e.Message
-		text = "added reaction: "
-		channelID = e.ChannelID
-		messageID = e.MessageID
-		sender = e.Sender
-		channelType = e.ChannelType
-		reaction = e.Reaction
-	case *bridge.ReactionRemoveEvent:
-		message = e.Message
-		text = "removed reaction: "
-		channelID = e.ChannelID
-		messageID = e.MessageID
-		sender = e.Sender
-		channelType = e.ChannelType
-		reaction = e.Reaction
-	}
+func (u *User) handleReactionEvent(event *bridge.ReactionAddEvent) {
+	message := event.Message
+	text := "reaction changed "
+	channelID := event.ChannelID
+	messageID := event.MessageID
+	sender := event.Sender
+	channelType := event.ChannelType
+	reaction := event.Reaction
 
 	if u.v.GetBool(u.br.Protocol() + ".hidereactions") {
 		logger.Debug("Not showing reaction: " + text + reaction)

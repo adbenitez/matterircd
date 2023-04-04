@@ -5,8 +5,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"fmt"
 
 	"github.com/deltachat/deltachat-rpc-client-go/deltachat"
+	"github.com/enescakir/emoji"
 	"github.com/deltachat/deltaircd/bridge"
 )
 
@@ -166,29 +168,49 @@ func (self *DeltaChat) GetUsers() []*bridge.UserInfo {
 }
 
 func (self *DeltaChat) MsgUser(userID, text string) (string, error) {
-	id, err := strconv.ParseUint(userID, 10, 0)
+	return self.MsgUserThread(userID, "", text)
+}
+
+func (self *DeltaChat) MsgChannel(channelID, text string) (string, error) {
+	return self.MsgChannelThread(channelID, "", text)
+}
+
+func (self *DeltaChat) MsgChannelThread(channelID, parentID, text string) (string, error) {
+	chatId, err := strconv.ParseUint(channelID, 10, 0)
 	if err != nil {
 		return "", err
 	}
-	contact := deltachat.Contact{self.account, id}
-	chat, err := contact.CreateChat()
-	if err != nil {
-		return "", err
+	msgData := deltachat.MsgData{Text: text}
+	quoteId, err := strconv.ParseUint(parentID, 10, 0)
+	if err == nil {
+		msgData.QuotedMessageId = quoteId
 	}
-	msg, err := chat.SendText(text)
+
+	chat := deltachat.Chat{self.account, chatId}
+	msg, err := chat.SendMsg(msgData)
 	if err != nil {
 		return "", err
 	}
 	return strconv.FormatUint(msg.Id, 10), nil
 }
 
-func (self *DeltaChat) MsgChannel(channelID, text string) (string, error) {
-	id, err := strconv.ParseUint(channelID, 10, 0)
+func (self *DeltaChat) MsgUserThread(userID, parentID, text string) (string, error) {
+	id, err := strconv.ParseUint(userID, 10, 0)
 	if err != nil {
 		return "", err
 	}
-	chat := deltachat.Chat{self.account, id}
-	msg, err := chat.SendText(text)
+	msgData := deltachat.MsgData{Text: text}
+	quoteId, err := strconv.ParseUint(parentID, 10, 0)
+	if err == nil {
+		msgData.QuotedMessageId = quoteId
+	}
+
+	contact := deltachat.Contact{self.account, id}
+	chat, err := contact.CreateChat()
+	if err != nil {
+		return "", err
+	}
+	msg, err := chat.SendMsg(msgData)
 	if err != nil {
 		return "", err
 	}
@@ -299,7 +321,7 @@ func (self *DeltaChat) GetPosts(channelID string, limit int) interface{} {
 	if maxIndex < limit {
 		limit = maxIndex
 	}
-	return msgs[maxIndex-limit:] // FIXME: fix scrollback()
+	return msgs[maxIndex-limit:]
 }
 
 func (self *DeltaChat) SearchUsers(query string) ([]*bridge.UserInfo, error) {
@@ -329,6 +351,23 @@ func (self *DeltaChat) SearchPosts(search string) interface{} {
 	return msgs
 }
 
+func (self *DeltaChat) AddReaction(msgID, reaction string) error    {
+	logger.Debugf("sending reaction %#v, %#v", msgID, reaction)
+	id, err := strconv.ParseUint(msgID, 10, 0)
+	if err != nil {
+		return err
+	}
+	msg := deltachat.Message{self.account, id}
+	if reaction != "" {
+		reaction = emoji.Parse(":"+reaction+":")
+	}
+	return msg.SendReaction(reaction)
+}
+
+func (self *DeltaChat) RemoveReaction(msgID, reaction string) error {
+	return self.AddReaction(msgID, "")
+}
+
 func (self *DeltaChat) GetTeamName(teamID string) string {
 	return ""
 }
@@ -341,16 +380,17 @@ func (self *DeltaChat) UpdateChannels() error {
 	return nil
 }
 
-func (self *DeltaChat) MsgChannelThread(channelID, parentID, text string) (string, error) {
-	return "", nil
-}
-
-func (self *DeltaChat) MsgUserThread(userID, parentID, text string) (string, error) {
-	return "", nil
-}
-
 func (self *DeltaChat) ModifyPost(msgID, text string) error {
-	return nil
+	if text == "" {
+		id, err := strconv.ParseUint(msgID, 10, 0)
+		if err != nil {
+			return err
+		}
+		msg := &deltachat.Message{self.account, id}
+		return msg.Delete()
+	}
+
+	return fmt.Errorf("Editing messages is not supported")
 }
 
 func (self *DeltaChat) GetFileLinks(fileIDs []string) []string {
@@ -362,11 +402,10 @@ func (self *DeltaChat) SetStatus(status string) error {
 	return nil
 }
 
-// Not implemented yet
+func (self *DeltaChat) GetPostsSince(channelID string, since int64) interface{} {
+	return nil
+}
 
-func (self *DeltaChat) AddReaction(msgID, emoji string) error    { return nil }
-func (self *DeltaChat) RemoveReaction(msgID, emoji string) error { return nil }
-
-func (self *DeltaChat) GetPostsSince(channelID string, since int64) interface{} { return nil }
-
-func (self *DeltaChat) GetUserByUsername(username string) *bridge.UserInfo { return nil }
+func (self *DeltaChat) GetUserByUsername(username string) *bridge.UserInfo {
+	return nil
+}

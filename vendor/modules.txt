@@ -25,6 +25,12 @@ github.com/desertbit/timer
 ## explicit
 github.com/dlclark/regexp2
 github.com/dlclark/regexp2/syntax
+# github.com/enescakir/emoji v1.0.0
+## explicit; go 1.13
+github.com/enescakir/emoji
+# github.com/forPelevin/gomoji v1.1.8
+## explicit; go 1.19
+github.com/forPelevin/gomoji
 # github.com/fsnotify/fsnotify v1.6.0
 ## explicit; go 1.16
 github.com/fsnotify/fsnotify
@@ -87,8 +93,8 @@ github.com/pelletier/go-toml/v2/unstable
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/rivo/uniseg v0.2.0
-## explicit; go 1.12
+# github.com/rivo/uniseg v0.4.3
+## explicit; go 1.18
 github.com/rivo/uniseg
 # github.com/rogpeppe/go-internal v1.8.0
 ## explicit; go 1.11

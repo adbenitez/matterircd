@@ -162,8 +162,6 @@ type ReactionAddEvent struct {
 	Message     string
 }
 
-type ReactionRemoveEvent ReactionAddEvent
-
 type UserUpdateEvent struct {
 	User *UserInfo
 }
