@@ -145,10 +145,7 @@ func scrollback(u *User, toUser *User, args []string, service string) {
 		if err != nil {
 			continue
 		}
-		ts := time.Unix(0, int64(msgData.ReceivedTimestamp))
-		u.MsgUser(toUser, fmt.Sprintf("Timestamp: %s", msgData.Timestamp))
-		u.MsgUser(toUser, fmt.Sprintf("SortTimestamp: %s", msgData.SortTimestamp))
-		u.MsgUser(toUser, fmt.Sprintf("ReceivedTimestamp: %s", msgData.ReceivedTimestamp))
+		ts := time.Unix(int64(msgData.Timestamp), 0)
 
 		user := u.br.GetUser(msgData.Sender)
 		nick := user.Nick
