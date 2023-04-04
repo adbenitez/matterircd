@@ -154,8 +154,6 @@ func scrollback(u *User, toUser *User, args []string, service string) {
 		nick := user.Nick
 		if msgData.IsInfo {
 			nick = "system"
-		} else if msgData.OverrideSenderName != "" {
-			nick = msgData.OverrideSenderName
 		}
 
 		text := msgData.Text
@@ -166,6 +164,10 @@ func scrollback(u *User, toUser *User, args []string, service string) {
 				text = "file://" + msgData.File
 			}
 		}
+		if msgData.OverrideSenderName != "" {
+			text = fmt.Sprintf("<%s> %s", msgData.OverrideSenderName, text)
+		}
+
 		for _, post := range strings.Split(text, "\n") {
 			switch { // nolint:dupl
 			case u.v.GetBool(u.br.Protocol()+".prefixcontext") && strings.HasPrefix(args[0], "#") && nick != "system":

@@ -307,6 +307,7 @@ func (self *DeltaChat) processMsg(msgData *deltachat.MsgSnapshot) {
 	chat := deltachat.Chat{self.account, msgData.ChatId}
 	chatData, _ := chat.BasicSnapshot()
 	channelID := strconv.FormatUint(chat.Id, 10)
+
 	text := msgData.Text
 	if msgData.File != "" {
 		if text != "" {
@@ -315,6 +316,10 @@ func (self *DeltaChat) processMsg(msgData *deltachat.MsgSnapshot) {
 			text = "file://" + msgData.File
 		}
 	}
+	if msgData.OverrideSenderName != "" {
+		text = fmt.Sprintf("<%s> %s", msgData.OverrideSenderName, text)
+	}
+
 	msgId := strconv.FormatUint(msgData.Id, 10)
 	quotedId := ""
 	if msgData.Quote != nil && msgData.Quote.MessageId != 0 {
