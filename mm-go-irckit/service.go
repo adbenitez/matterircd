@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/deltachat/deltachat-rpc-client-go/deltachat"
@@ -75,7 +74,7 @@ func search(u *User, toUser *User, args []string, service string) {
 
 	for i := len(posts) - 1; i >= 0; i-- {
 		post := posts[i]
-		timestamp := time.Unix(post.Timestamp, 0).Format("January 02, 2006 15:04")
+		timestamp := post.Timestamp.Format("January 02, 2006 15:04")
 		header := "<" + post.AuthorName + "> " + timestamp
 		u.MsgUser(toUser, header)
 		u.MsgUser(toUser, strings.Repeat("=", len(header)))
@@ -145,7 +144,7 @@ func scrollback(u *User, toUser *User, args []string, service string) {
 		if err != nil {
 			continue
 		}
-		ts := time.Unix(int64(msgData.Timestamp), 0)
+		ts := msgData.Timestamp
 
 		user := u.br.GetUser(msgData.Sender)
 		nick := user.Nick
@@ -170,9 +169,9 @@ func scrollback(u *User, toUser *User, args []string, service string) {
 			case u.v.GetBool(u.br.Protocol()+".prefixcontext") && strings.HasPrefix(args[0], "#") && nick != "system":
 				quotedId := ""
 				if msgData.Quote != nil && msgData.Quote.MessageId != 0 {
-					quotedId = strconv.FormatUint(msgData.Quote.MessageId, 10)
+					quotedId = strconv.FormatUint(uint64(msgData.Quote.MessageId), 10)
 				}
-				threadMsgID := u.prefixContext("", strconv.FormatUint(msgData.Id, 10), quotedId, "")
+				threadMsgID := u.prefixContext("", strconv.FormatUint(uint64(msgData.Id), 10), quotedId, "")
 				scrollbackMsg := u.formatContextMessage(ts.Format("2006-01-02 15:04"), threadMsgID, post)
 				spoof(nick, scrollbackMsg)
 			case strings.HasPrefix(args[0], "#"):
@@ -181,9 +180,9 @@ func scrollback(u *User, toUser *User, args []string, service string) {
 			case u.v.GetBool(u.br.Protocol()+".prefixcontext"):
 				quotedId := ""
 				if msgData.Quote != nil && msgData.Quote.MessageId != 0 {
-					quotedId = strconv.FormatUint(msgData.Quote.MessageId, 10)
+					quotedId = strconv.FormatUint(uint64(msgData.Quote.MessageId), 10)
 				}
-				threadMsgID := u.prefixContext("", strconv.FormatUint(msgData.Id, 10), quotedId, "")
+				threadMsgID := u.prefixContext("", strconv.FormatUint(uint64(msgData.Id), 10), quotedId, "")
 				scrollbackMsg := u.formatContextMessage(ts.Format("2006-01-02 15:04"), threadMsgID, post)
 				u.MsgSpoofUser(scrollbackUser, nick, scrollbackMsg)
 			default:

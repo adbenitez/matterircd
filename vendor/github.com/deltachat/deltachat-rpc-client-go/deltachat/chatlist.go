@@ -2,11 +2,11 @@ package deltachat
 
 // Chat list item snapshot
 type ChatListItem struct {
-	Id                  uint64
+	Id                  ChatId
 	Name                string
 	AvatarPath          string
 	Color               string
-	LastUpdated         int64
+	LastUpdated         Timestamp
 	SummaryText1        string
 	SummaryText2        string
 	SummaryStatus       uint32
@@ -22,7 +22,7 @@ type ChatListItem struct {
 	IsMuted             bool
 	IsContactRequest    bool
 	IsBroadcast         bool
-	DmChatContact       uint64
+	DmChatContact       ContactId
 	WasSeenRecently     bool
 
 	// ArchiveLink

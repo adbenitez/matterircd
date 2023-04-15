@@ -5,10 +5,12 @@ import (
 	"sort"
 )
 
-// Delta Chat account.
+type AccountId uint64
+
+// Delta Chat account. Account instances are usually obtained from an AccountManager.
 type Account struct {
 	Manager *AccountManager
-	Id      uint64
+	Id      AccountId
 }
 
 // Implement Stringer.
@@ -17,19 +19,8 @@ func (self *Account) String() string {
 }
 
 // Get this account's event channel.
-func (self *Account) GetEventChannel() <-chan *Event {
+func (self *Account) GetEventChannel() <-chan Event {
 	return self.rpc().GetEventChannel(self.Id)
-}
-
-// Get next event matching the given type.
-func (self *Account) WaitForEvent(eventType string) *Event {
-	eventChan := self.GetEventChannel()
-	for {
-		event := <-eventChan
-		if event.Type == eventType {
-			return event
-		}
-	}
 }
 
 // Remove the account.
@@ -64,6 +55,24 @@ func (self *Account) Connectivity() (uint, error) {
 	return info, err
 }
 
+// Get an overview of the current connectivity, and possibly more statistics.
+// Meant to give the user more insight about the current status than
+// the basic connectivity info returned by get_connectivity(); show this
+// e.g., if the user taps on said basic connectivity info.
+//
+// If this page changes, an EventConnectivityChanged will be emitted.
+//
+// This comes as an HTML from the core so that we can easily improve it
+// and the improvement instantly reaches all UIs.
+//
+// If the account is not started (ex. by calling Account.StartIO()) an error
+// will be returned.
+func (self *Account) ConnectivityHtml() (string, error) {
+	var html string
+	err := self.rpc().CallResult(&html, "get_connectivity_html", self.Id)
+	return html, err
+}
+
 // Return map of this account configuration parameters.
 func (self *Account) Info() (map[string]string, error) {
 	var info map[string]string
@@ -83,6 +92,19 @@ func (self *Account) IsConfigured() (bool, error) {
 	var configured bool
 	err := self.rpc().CallResult(&configured, "is_configured", self.Id)
 	return configured, err
+}
+
+// Set custom UI-specific configuration value.
+// This is useful for custom 3rd party settings set by Delta Chat clients and bot programs.
+func (self *Account) SetUiConfig(key string, value string) error {
+	return self.rpc().Call("set_config", self.Id, "ui."+key, value)
+}
+
+// Get custom UI-specific configuration value set with SetUiConfig().
+func (self *Account) GetUiConfig(key string) (string, error) {
+	var value string
+	err := self.rpc().CallResult(&value, "get_config", self.Id, "ui."+key)
+	return value, err
 }
 
 // Set configuration value.
@@ -121,14 +143,14 @@ func (self *Account) Configure() error {
 // If there already is a Contact with that e-mail address, it is unblocked and its display
 // name is updated if specified.
 func (self *Account) CreateContact(addr string, name string) (*Contact, error) {
-	var id uint64
+	var id ContactId
 	err := self.rpc().CallResult(&id, "create_contact", self.Id, addr, name)
 	return &Contact{self, id}, err
 }
 
 // Check if an e-mail address belongs to a known and unblocked contact.
 func (self *Account) GetContactByAddr(addr string) (*Contact, error) {
-	var id uint64
+	var id ContactId
 	err := self.rpc().CallResult(&id, "lookup_contact_id_by_addr", self.Id, addr)
 	if id > 0 {
 		return &Contact{self, id}, err
@@ -150,7 +172,7 @@ func (self *Account) Contacts() ([]*Contact, error) {
 
 // Get the list of contacts matching the given query.
 func (self *Account) QueryContacts(query string, listFlags uint) ([]*Contact, error) {
-	var ids []uint64
+	var ids []ContactId
 	err := self.rpc().CallResult(&ids, "get_contact_ids", self.Id, listFlags, query)
 	var contacts []*Contact
 	if err != nil {
@@ -165,33 +187,13 @@ func (self *Account) QueryContacts(query string, listFlags uint) ([]*Contact, er
 
 // This account's identity as a Contact.
 func (self *Account) Me() *Contact {
-	return &Contact{self, CONTACT_SELF}
-}
-
-// Create a 1:1 chat with the given account.
-func (self *Account) CreateChat(account *Account) (*Chat, error) {
-	addr, err := account.GetConfig("configured_addr")
-	if err != nil {
-		return nil, err
-	}
-
-	contact, err := self.CreateContact(addr, "")
-	if err != nil {
-		return nil, err
-	}
-
-	chat, err := contact.CreateChat()
-	if err != nil {
-		return nil, err
-	}
-
-	return chat, nil
+	return &Contact{self, ContactSelf}
 }
 
 // Create a new group chat.
 // After creation, the group has only self-contact as member and is in unpromoted state.
 func (self *Account) CreateGroup(name string, protected bool) (*Chat, error) {
-	var id uint64
+	var id ChatId
 	err := self.rpc().CallResult(&id, "create_group_chat", self.Id, name, protected)
 	if err != nil {
 		return nil, err
@@ -201,7 +203,7 @@ func (self *Account) CreateGroup(name string, protected bool) (*Chat, error) {
 
 // Create a new broadcast list.
 func (self *Account) CreateBroadcastList() (*Chat, error) {
-	var id uint64
+	var id ChatId
 	err := self.rpc().CallResult(&id, "create_broadcast_list", self.Id)
 	if err != nil {
 		return nil, err
@@ -211,7 +213,7 @@ func (self *Account) CreateBroadcastList() (*Chat, error) {
 
 // Continue a Setup-Contact or Verified-Group-Invite protocol started on another device.
 func (self *Account) SecureJoin(qrdata string) (*Chat, error) {
-	var id uint64
+	var id ChatId
 	err := self.rpc().CallResult(&id, "secure_join", self.Id, qrdata)
 	return &Chat{self, id}, err
 }
@@ -317,7 +319,7 @@ func (self *Account) InitiateAutocryptKeyTransfer() (string, error) {
 
 // Mark the given set of messages as seen.
 func (self *Account) MarkSeenMsgs(messages []*Message) error {
-	ids := make([]uint64, len(messages))
+	ids := make([]MsgId, len(messages))
 	for i := range messages {
 		ids[i] = messages[i].Id
 	}
@@ -326,7 +328,7 @@ func (self *Account) MarkSeenMsgs(messages []*Message) error {
 
 // Delete the given set of messages (local and remote).
 func (self *Account) DeleteMsgs(messages []*Message) error {
-	ids := make([]uint64, len(messages))
+	ids := make([]MsgId, len(messages))
 	for i := range messages {
 		ids[i] = messages[i].Id
 	}
@@ -337,7 +339,7 @@ func (self *Account) DeleteMsgs(messages []*Message) error {
 // This call is intended for displaying notifications.
 func (self *Account) FreshMsgs() ([]*Message, error) {
 	var msgs []*Message
-	var ids []uint64
+	var ids []MsgId
 	err := self.rpc().CallResult(&ids, "get_fresh_msgs", self.Id)
 	if err != nil {
 		return msgs, err
@@ -352,7 +354,7 @@ func (self *Account) FreshMsgs() ([]*Message, error) {
 // Return fresh messages list sorted in the order of their arrival, with ascending IDs.
 func (self *Account) FreshMsgsInArrivalOrder() ([]*Message, error) {
 	var msgs []*Message
-	var ids []uint64
+	var ids []MsgId
 	err := self.rpc().CallResult(&ids, "get_fresh_msgs", self.Id)
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	if err != nil {
@@ -408,7 +410,7 @@ func (self *Account) ChatListEntries() ([]*Chat, error) {
 
 // Return chat list entries matching the given query.
 func (self *Account) QueryChatListEntries(query string, contact *Contact, listFlags uint) ([]*Chat, error) {
-	var entries [][]uint64
+	var entries [][]ChatId
 	var query2 any
 	if query == "" {
 		query2 = nil
@@ -429,7 +431,7 @@ func (self *Account) QueryChatListEntries(query string, contact *Contact, listFl
 
 // Add a text message in the "Device messages" chat and return the resulting Message instance.
 func (self *Account) AddDeviceMsg(label, text string) (*Message, error) {
-	var id uint64
+	var id MsgId
 	err := self.rpc().CallResult(&id, "add_device_message", self.Id, label, text)
 	if err != nil {
 		return nil, err

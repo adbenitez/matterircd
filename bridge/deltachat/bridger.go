@@ -64,12 +64,12 @@ func (self *DeltaChat) GetChannel(channelID string) (*bridge.ChannelInfo, error)
 	if err != nil {
 		return nil, err
 	}
-	chat := deltachat.Chat{self.account, id}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(id)}
 	snapshot, err := chat.BasicSnapshot()
 	if err != nil {
 		return nil, err
 	}
-	isDM := snapshot.ChatType == deltachat.CHAT_TYPE_SINGLE
+	isDM := snapshot.ChatType == deltachat.ChatSingle
 	return self.createChannelInfo(chat.Id, isDM, snapshot.Name), nil
 }
 
@@ -78,7 +78,7 @@ func (self *DeltaChat) GetChannelName(channelID string) string {
 	if err != nil {
 		return channelID
 	}
-	chat := deltachat.Chat{self.account, id}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(id)}
 	snapshot, err := chat.BasicSnapshot()
 	if err != nil {
 		return channelID
@@ -91,7 +91,7 @@ func (self *DeltaChat) GetChannelUsers(channelID string) ([]*bridge.UserInfo, er
 	if err != nil {
 		return nil, err
 	}
-	chat := deltachat.Chat{self.account, id}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(id)}
 	snapshot, err := chat.FullSnapshot()
 	if err != nil {
 		return nil, err
@@ -100,7 +100,7 @@ func (self *DeltaChat) GetChannelUsers(channelID string) ([]*bridge.UserInfo, er
 	for i := range snapshot.Contacts {
 		users[i] = self.getUserInfo(snapshot.Contacts[i])
 	}
-	if snapshot.ChatType == deltachat.CHAT_TYPE_SINGLE {
+	if snapshot.ChatType == deltachat.ChatSingle {
 		me, _ := self.account.Me().Snapshot()
 		users = append(users, self.getUserInfo(me))
 	}
@@ -127,7 +127,7 @@ func (self *DeltaChat) Join(channelName string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	chat := deltachat.Chat{self.account, id}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(id)}
 	snapshot, err := chat.BasicSnapshot()
 	if err != nil {
 		return "", "", err
@@ -140,7 +140,7 @@ func (self *DeltaChat) Topic(channelID string) string {
 	if err != nil {
 		return ""
 	}
-	chat := deltachat.Chat{self.account, id}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(id)}
 	snapshot, err := chat.BasicSnapshot()
 	if err != nil {
 		return ""
@@ -153,7 +153,7 @@ func (self *DeltaChat) SetTopic(channelID, text string) error {
 	if err != nil {
 		return err
 	}
-	chat := deltachat.Chat{self.account, id}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(id)}
 	return chat.SetName(text)
 }
 
@@ -183,15 +183,15 @@ func (self *DeltaChat) MsgChannelThread(channelID, parentID, text string) (strin
 	msgData := deltachat.MsgData{Text: text}
 	quoteId, err := strconv.ParseUint(parentID, 10, 0)
 	if err == nil {
-		msgData.QuotedMessageId = quoteId
+		msgData.QuotedMessageId = deltachat.MsgId(quoteId)
 	}
 
-	chat := deltachat.Chat{self.account, chatId}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(chatId)}
 	msg, err := chat.SendMsg(msgData)
 	if err != nil {
 		return "", err
 	}
-	return strconv.FormatUint(msg.Id, 10), nil
+	return strconv.FormatUint(uint64(msg.Id), 10), nil
 }
 
 func (self *DeltaChat) MsgUserThread(userID, parentID, text string) (string, error) {
@@ -202,10 +202,10 @@ func (self *DeltaChat) MsgUserThread(userID, parentID, text string) (string, err
 	msgData := deltachat.MsgData{Text: text}
 	quoteId, err := strconv.ParseUint(parentID, 10, 0)
 	if err == nil {
-		msgData.QuotedMessageId = quoteId
+		msgData.QuotedMessageId = deltachat.MsgId(quoteId)
 	}
 
-	contact := deltachat.Contact{self.account, id}
+	contact := deltachat.Contact{self.account, deltachat.ContactId(id)}
 	chat, err := contact.CreateChat()
 	if err != nil {
 		return "", err
@@ -214,7 +214,7 @@ func (self *DeltaChat) MsgUserThread(userID, parentID, text string) (string, err
 	if err != nil {
 		return "", err
 	}
-	return strconv.FormatUint(msg.Id, 10), nil
+	return strconv.FormatUint(uint64(msg.Id), 10), nil
 }
 
 func (self *DeltaChat) StatusUser(userID string) (string, error) {
@@ -222,19 +222,19 @@ func (self *DeltaChat) StatusUser(userID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	contact := deltachat.Contact{self.account, id}
+	contact := deltachat.Contact{self.account, deltachat.ContactId(id)}
 	snapshot, err := contact.Snapshot()
 	if err != nil {
 		return "", err
 	}
 	var status string
+	never := deltachat.Timestamp{time.Unix(0, 0)}
 	if snapshot.WasSeenRecently {
 		status = "online"
-	} else if snapshot.LastSeen == 0 {
+	} else if snapshot.LastSeen == never {
 		status = "Last Seen: Never"
 	} else {
-		lastSeen := time.Unix(int64(snapshot.LastSeen), 0)
-		status = "Last Seen: " + lastSeen.Format(time.RFC1123)
+		status = "Last Seen: " + snapshot.LastSeen.Format(time.RFC1123)
 	}
 	return status, nil
 }
@@ -244,7 +244,7 @@ func (self *DeltaChat) Part(channelID string) error {
 	if err != nil {
 		return err
 	}
-	chat := deltachat.Chat{self.account, id}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(id)}
 	return chat.Leave()
 }
 
@@ -261,8 +261,8 @@ func (self *DeltaChat) Invite(channelID, userID string) error {
 	if err != nil {
 		return err
 	}
-	chat := deltachat.Chat{self.account, chatId}
-	contact := deltachat.Contact{self.account, contactId}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(chatId)}
+	contact := deltachat.Contact{self.account, deltachat.ContactId(contactId)}
 	return chat.AddContact(&contact)
 }
 
@@ -275,8 +275,8 @@ func (self *DeltaChat) Kick(channelID, userID string) error {
 	if err != nil {
 		return err
 	}
-	chat := deltachat.Chat{self.account, chatId}
-	contact := deltachat.Contact{self.account, contactId}
+	chat := deltachat.Chat{self.account, deltachat.ChatId(chatId)}
+	contact := deltachat.Contact{self.account, deltachat.ContactId(contactId)}
 	return chat.RemoveContact(&contact)
 }
 
@@ -295,12 +295,12 @@ func (self *DeltaChat) GetUserChannelID(name, teamID string) string {
 	if err != nil {
 		return ""
 	}
-	contact := &deltachat.Contact{self.account, contactId}
+	contact := &deltachat.Contact{self.account, deltachat.ContactId(contactId)}
 	chat, err := contact.CreateChat()
 	if err != nil {
 		return ""
 	}
-	return strconv.FormatUint(chat.Id, 10)
+	return strconv.FormatUint(uint64(chat.Id), 10)
 }
 
 func (self *DeltaChat) GetPosts(channelID string, limit int) interface{} {
@@ -312,7 +312,7 @@ func (self *DeltaChat) GetPosts(channelID string, limit int) interface{} {
 		return nil
 	}
 
-	chat := &deltachat.Chat{self.account, chatId}
+	chat := &deltachat.Chat{self.account, deltachat.ChatId(chatId)}
 	msgs, err := chat.Messages(false, false)
 	if err != nil {
 		return nil
@@ -357,7 +357,7 @@ func (self *DeltaChat) AddReaction(msgID, reaction string) error    {
 	if err != nil {
 		return err
 	}
-	msg := deltachat.Message{self.account, id}
+	msg := deltachat.Message{self.account, deltachat.MsgId(id)}
 	if reaction != "" {
 		reaction = emoji.Parse(":"+reaction+":")
 	}
@@ -386,7 +386,7 @@ func (self *DeltaChat) ModifyPost(msgID, text string) error {
 		if err != nil {
 			return err
 		}
-		msg := &deltachat.Message{self.account, id}
+		msg := &deltachat.Message{self.account, deltachat.MsgId(id)}
 		return msg.Delete()
 	}
 

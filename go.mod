@@ -3,7 +3,7 @@ module github.com/deltachat/deltaircd
 require (
 	github.com/alecthomas/chroma/v2 v2.4.0
 	github.com/davecgh/go-spew v1.1.1
-	github.com/deltachat/deltachat-rpc-client-go v0.11.1
+	github.com/deltachat/deltachat-rpc-client-go v0.17.1-0.20230414134334-71f41fbdb931
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f
 	github.com/enescakir/emoji v1.0.0
 	github.com/forPelevin/gomoji v1.1.8

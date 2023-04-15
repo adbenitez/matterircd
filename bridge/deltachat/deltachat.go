@@ -138,16 +138,16 @@ func (self *DeltaChat) handleEvents() {
 	}
 }
 
-func (self *DeltaChat) handleEvent(event *deltachat.Event) {
-	switch evtype := event.Type; evtype {
-	case deltachat.EVENT_INFO:
-		logger.Debug("INFO:", event.Msg)
-	case deltachat.EVENT_WARNING:
-		logger.Debug("WARNING:", event.Msg)
-	case deltachat.EVENT_ERROR:
-		logger.Debug("ERROR:", event.Msg)
-	case deltachat.EVENT_REACTIONS_CHANGED:
-		msg := &deltachat.Message{self.account, event.MsgId}
+func (self *DeltaChat) handleEvent(event deltachat.Event) {
+	switch ev := event.(type) {
+	case deltachat.EventInfo:
+		logger.Debug("INFO:", ev.Msg)
+	case deltachat.EventWarning:
+		logger.Debug("WARNING:", ev.Msg)
+	case deltachat.EventError:
+		logger.Debug("ERROR:", ev.Msg)
+	case deltachat.EventReactionsChanged:
+		msg := &deltachat.Message{self.account, ev.MsgId}
 		msgData, err := msg.Snapshot()
 		if err != nil {
 			break
@@ -166,9 +166,9 @@ func (self *DeltaChat) handleEvent(event *deltachat.Event) {
 
 		channelType := ""
 		var user *bridge.UserInfo
-		chat := &deltachat.Chat{self.account, event.ChatId}
+		chat := &deltachat.Chat{self.account, ev.ChatId}
 		chatData, err := chat.BasicSnapshot()
-		if err == nil && chatData.ChatType == deltachat.CHAT_TYPE_SINGLE {
+		if err == nil && chatData.ChatType == deltachat.ChatSingle {
 			channelType = "D"
 			contacts, _ := chat.Contacts()
 			contact, _ := contacts[0].Snapshot()
@@ -180,21 +180,21 @@ func (self *DeltaChat) handleEvent(event *deltachat.Event) {
 		bridgeEvent := &bridge.Event{
 			Type: "reaction_add",
 			Data: &bridge.ReactionAddEvent{
-				ChannelID:   strconv.FormatUint(msgData.ChatId, 10),
-				MessageID:   strconv.FormatUint(msgData.Id, 10),
+				ChannelID:   strconv.FormatUint(uint64(msgData.ChatId), 10),
+				MessageID:   strconv.FormatUint(uint64(msgData.Id), 10),
 				Sender:      user,
 				Reaction:    reactions,
 				ChannelType: channelType,
 			},
 		}
 		self.eventChan <- bridgeEvent
-	case deltachat.EVENT_INCOMING_MSG:
-		chat := &deltachat.Chat{self.account, event.ChatId}
+	case deltachat.EventIncomingMsg:
+		chat := &deltachat.Chat{self.account, ev.ChatId}
 		chat.SetMuteDuration(0) // TODO: remove this when there is a way to get fresh messages from muted chats
 		self.processMessages()
-	case deltachat.EVENT_MSGS_CHANGED:
-		if event.MsgId != 0 {
-			msg := &deltachat.Message{self.account, event.MsgId}
+	case deltachat.EventMsgsChanged:
+		if ev.MsgId != 0 {
+			msg := &deltachat.Message{self.account, ev.MsgId}
 			msgData, err := msg.Snapshot()
 			if err == nil && msgData.IsInfo {
 				self.processInfoMsg(msgData)
@@ -206,7 +206,7 @@ func (self *DeltaChat) handleEvent(event *deltachat.Event) {
 
 func (self *DeltaChat) processInfoMsg(msgData *deltachat.MsgSnapshot) bool {
 	switch msgData.SystemMessageType {
-	case deltachat.SYSMSG_TYPE_MEMBER_ADDED_TO_GROUP:
+	case deltachat.SysmsgMemberAddedToGroup:
 		actor, target, err := msgData.ParseMemberAdded()
 		if err != nil {
 			return false
@@ -226,12 +226,12 @@ func (self *DeltaChat) processInfoMsg(msgData *deltachat.MsgSnapshot) bool {
 					self.getUserInfo(added),
 				},
 				Adder:     self.getUserInfo(adder),
-				ChannelID: strconv.FormatUint(msgData.ChatId, 10),
+				ChannelID: strconv.FormatUint(uint64(msgData.ChatId), 10),
 			},
 		}
 		self.eventChan <- event
 		return true
-	case deltachat.SYSMSG_TYPE_MEMBER_REMOVED_FROM_GROUP:
+	case deltachat.SysmsgMemberRemovedFromGroup:
 		actor, target, err := msgData.ParseMemberRemoved()
 		if *target == *msgData.Account.Me() && *actor == *target {
 			return true
@@ -258,13 +258,13 @@ func (self *DeltaChat) processInfoMsg(msgData *deltachat.MsgSnapshot) bool {
 					self.getUserInfo(removed),
 				},
 				Remover:   remover,
-				ChannelID: strconv.FormatUint(msgData.ChatId, 10),
+				ChannelID: strconv.FormatUint(uint64(msgData.ChatId), 10),
 			},
 		}
 		self.eventChan <- event
 		return true
-	case deltachat.SYSMSG_TYPE_GROUP_NAME_CHANGED:
-		if msgData.FromId == deltachat.CONTACT_SELF {
+	case deltachat.SysmsgGroupNameChanged:
+		if msgData.FromId == deltachat.ContactSelf {
 			return false
 		}
 		chat := &deltachat.Chat{msgData.Account, msgData.ChatId}
@@ -276,8 +276,8 @@ func (self *DeltaChat) processInfoMsg(msgData *deltachat.MsgSnapshot) bool {
 			Type: "channel_topic",
 			Data: &bridge.ChannelTopicEvent{
 				Text:      chatData.Name,
-				ChannelID: strconv.FormatUint(msgData.ChatId, 10),
-				UserID:    strconv.FormatUint(msgData.FromId, 10),
+				ChannelID: strconv.FormatUint(uint64(msgData.ChatId), 10),
+				UserID:    strconv.FormatUint(uint64(msgData.FromId), 10),
 			},
 		}
 		self.eventChan <- event
@@ -306,7 +306,7 @@ func (self *DeltaChat) processMsg(msgData *deltachat.MsgSnapshot) {
 
 	chat := deltachat.Chat{self.account, msgData.ChatId}
 	chatData, _ := chat.BasicSnapshot()
-	channelID := strconv.FormatUint(chat.Id, 10)
+	channelID := strconv.FormatUint(uint64(chat.Id), 10)
 
 	text := msgData.Text
 	if msgData.File != "" {
@@ -320,13 +320,13 @@ func (self *DeltaChat) processMsg(msgData *deltachat.MsgSnapshot) {
 		text = fmt.Sprintf("<%s> %s", msgData.OverrideSenderName, text)
 	}
 
-	msgId := strconv.FormatUint(msgData.Id, 10)
+	msgId := strconv.FormatUint(uint64(msgData.Id), 10)
 	quotedId := ""
 	if msgData.Quote != nil && msgData.Quote.MessageId != 0 {
-		quotedId = strconv.FormatUint(msgData.Quote.MessageId, 10)
+		quotedId = strconv.FormatUint(uint64(msgData.Quote.MessageId), 10)
 	}
 
-	if chatData.ChatType == deltachat.CHAT_TYPE_SINGLE {
+	if chatData.ChatType == deltachat.ChatSingle {
 		self.sendDirectMessage(ghost, ghost, channelID, msgId, quotedId, text)
 	} else {
 		self.sendPublicMessage(ghost, channelID, msgId, quotedId, text)
@@ -376,27 +376,27 @@ func (self *DeltaChat) getUserInfo(dcuser *deltachat.ContactSnapshot) *bridge.Us
 	return &bridge.UserInfo{
 		Nick:        nick,
 		Real:        dcuser.AuthName,
-		User:        strconv.FormatUint(dcuser.Id, 10),
+		User:        strconv.FormatUint(uint64(dcuser.Id), 10),
 		Host:        self.Protocol(),
 		DisplayName: dcuser.DisplayName,
 		Ghost:       true,
-		Me:          dcuser.Id == deltachat.CONTACT_SELF,
+		Me:          dcuser.Id == deltachat.ContactSelf,
 		Username:    dcuser.DisplayName,
 		TeamID:      self.Protocol(),
 	}
 }
 
-func (self *DeltaChat) createChannelInfo(chatId uint64, isDM bool, chatName string) *bridge.ChannelInfo {
+func (self *DeltaChat) createChannelInfo(chatId deltachat.ChatId, isDM bool, chatName string) *bridge.ChannelInfo {
 	return &bridge.ChannelInfo{
 		Name:    getChanName(chatId, chatName),
-		ID:      strconv.FormatUint(chatId, 10),
+		ID:      strconv.FormatUint(uint64(chatId), 10),
 		TeamID:  self.Protocol(),
 		DM:      isDM,
 		Private: false,
 	}
 }
 
-func getChanName(chatId uint64, chatName string) string {
+func getChanName(chatId deltachat.ChatId, chatName string) string {
 	prefix := "#"
 	suffix := fmt.Sprintf("|%v", chatId)
 	name := sanitizeNick(chatName)

@@ -2,44 +2,46 @@ package deltachat
 
 import "fmt"
 
+type MsgId uint64
+
 // Message data provided to Chat.SendMsg()
 type MsgData struct {
 	Text               string      `json:"text,omitempty"`
 	Html               string      `json:"html,omitempty"`
-	ViewType           string      `json:"viewtype,omitempty"`
+	ViewType           MsgType     `json:"viewtype,omitempty"`
 	File               string      `json:"file,omitempty"`
 	Location           *[2]float64 `json:"location,omitempty"`
 	OverrideSenderName string      `json:"overrideSenderName,omitempty"`
-	QuotedMessageId    uint64      `json:"quotedMessageId,omitempty"`
+	QuotedMessageId    MsgId       `json:"quotedMessageId,omitempty"`
 }
 
 // Message quote. Only the Text property is warrantied to be present, all other fields are optional.
 type MsgQuote struct {
 	Text               string
-	MessageId          uint64
+	MessageId          MsgId
 	AuthorDisplayName  string
 	AuthorDisplayColor string
 	OverrideSenderName string
 	Image              string
 	IsForwarded        bool
-	ViewType           string
+	ViewType           MsgType
 }
 
 // Message search result.
 type MsgSearchResult struct {
-	Id                 uint64
+	Id                 MsgId
 	AuthorProfileImage string
 	AuthorName         string
 	AuthorColor        string
 	ChatName           string
 	Message            string
-	Timestamp          int64
+	Timestamp          Timestamp
 }
 
 // Delta Chat Message.
 type Message struct {
 	Account *Account
-	Id      uint64
+	Id      MsgId
 }
 
 // Implement Stringer.
@@ -74,7 +76,7 @@ func (self *Message) Info() (string, error) {
 
 // Delete message.
 func (self *Message) Delete() error {
-	return self.rpc().Call("delete_messages", self.Account.Id, []uint64{self.Id})
+	return self.rpc().Call("delete_messages", self.Account.Id, []MsgId{self.Id})
 }
 
 // Asks the core to start downloading a message fully.
@@ -84,7 +86,7 @@ func (self *Message) Download() error {
 
 // Mark the message as seen.
 func (self *Message) MarkSeen() error {
-	return self.rpc().Call("markseen_msgs", self.Account.Id, []uint64{self.Id})
+	return self.rpc().Call("markseen_msgs", self.Account.Id, []MsgId{self.Id})
 }
 
 // Send a reaction to this message.
@@ -112,9 +114,9 @@ func (self *Message) StatusUpdates(lastKnownSerial uint) (string, error) {
 
 // Get info from this webxdc message.
 func (self *Message) WebxdcInfo() (*WebxdcMsgInfo, error) {
-	var info *WebxdcMsgInfo
-	err := self.rpc().CallResult(info, "get_webxdc_info", self.Account.Id, self.Id)
-	return info, err
+	var info WebxdcMsgInfo
+	err := self.rpc().CallResult(&info, "get_webxdc_info", self.Account.Id, self.Id)
+	return &info, err
 }
 
 func (self *Message) rpc() Rpc {

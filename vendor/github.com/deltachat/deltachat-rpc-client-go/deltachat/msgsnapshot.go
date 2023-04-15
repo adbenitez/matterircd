@@ -10,20 +10,20 @@ import (
 type MsgSnapshot struct {
 	Account *Account
 
-	Id                    uint64
-	ChatId                uint64
-	FromId                uint64
+	Id                    MsgId
+	ChatId                ChatId
+	FromId                ContactId
 	Quote                 *MsgQuote
-	ParentId              uint64
+	ParentId              MsgId
 	Text                  string
 	HasLocation           bool
 	HasHtml               bool
-	ViewType              string
-	State                 int
+	ViewType              MsgType
+	State                 MsgState
 	Error                 string
-	Timestamp             int
-	SortTimestamp         int
-	ReceivedTimestamp     int
+	Timestamp             Timestamp
+	SortTimestamp         Timestamp
+	ReceivedTimestamp     Timestamp
 	HasDeviatingTimestamp bool
 	Subject               string
 	ShowPadlock           bool
@@ -31,7 +31,7 @@ type MsgSnapshot struct {
 	IsInfo                bool
 	IsForwarded           bool
 	IsBot                 bool
-	SystemMessageType     string
+	SystemMessageType     SysmsgType
 	Duration              int
 	DimensionsHeight      int
 	DimensionsWidth       int
@@ -45,70 +45,58 @@ type MsgSnapshot struct {
 	FileBytes             uint64
 	FileName              string
 	WebxdcInfo            *WebxdcMsgInfo
-	DownloadState         string
+	DownloadState         DownloadState
 	Reactions             *Reactions
 }
 
-// Extract metadata from system message with type SYSMSG_TYPE_MEMBER_ADDED_TO_GROUP.
+// Extract metadata from system message with type SysmsgTypeMemberAddedToGroup.
 func (self *MsgSnapshot) ParseMemberAdded() (actor *Contact, target *Contact, err error) {
-	action, actor, target, err := self.parseMemberAddRemove()
-	if err != nil {
-		return nil, nil, err
-	}
-	if action == "added" {
-		return actor, target, nil
-	}
-	return nil, nil, fmt.Errorf("System message does not match")
+	return self.parseMemberAddRemove("added")
 }
 
-// Extract metadata from system message with type SYSMSG_TYPE_MEMBER_REMOVED_FROM_GROUP.
+// Extract metadata from system message with type SysmsgTypeMemberRemovedFromGroup.
 func (self *MsgSnapshot) ParseMemberRemoved() (actor *Contact, target *Contact, err error) {
-	action, actor, target, err := self.parseMemberAddRemove()
-	if err != nil {
-		return nil, nil, err
-	}
-	if action == "removed" {
-		return actor, target, nil
-	}
-	return nil, nil, fmt.Errorf("System message does not match")
+	return self.parseMemberAddRemove("removed")
 }
 
-func (self *MsgSnapshot) parseMemberAddRemove() (string, *Contact, *Contact, error) {
+func (self *MsgSnapshot) parseMemberAddRemove(action string) (actor *Contact, target *Contact, err error) {
 	text := strings.ToLower(self.Text)
-	actor := &Contact{self.Account, self.FromId}
+	actor = &Contact{self.Account, self.FromId}
 
-	regex := regexp.MustCompile(`^member (.+) (removed|added) by .+\.$`)
+	regex := regexp.MustCompile(`^member (.+) ` + action + ` by .+\.$`)
 	match := regex.FindStringSubmatch(text)
 	if len(match) > 0 {
 		target, err := self.extractContact(match[1])
 		if err != nil {
-			return "", nil, nil, err
+			return nil, nil, err
 		}
-		return match[2], actor, target, nil
+		return actor, target, nil
 	}
 
-	regex = regexp.MustCompile(`^you (removed|added) member (.+)\.$`)
+	regex = regexp.MustCompile(`^you ` + action + ` member (.+)\.$`)
 	match = regex.FindStringSubmatch(text)
 	if len(match) > 0 {
-		target, err := self.extractContact(match[2])
+		target, err := self.extractContact(match[1])
 		if err != nil {
-			return "", nil, nil, err
+			return nil, nil, err
 		}
-		return match[1], actor, target, nil
+		return actor, target, nil
 	}
 
-	regex = regexp.MustCompile(`^group left by .+\.$`)
-	match = regex.FindStringSubmatch(text)
-	if len(match) > 0 {
-		return "removed", actor, actor, nil
+	if action == "removed" {
+		regex = regexp.MustCompile(`^group left by .+\.$`)
+		match = regex.FindStringSubmatch(text)
+		if len(match) > 0 {
+			return actor, actor, nil
+		}
+
+		regex = regexp.MustCompile(`^you left the group\.$`)
+		if regex.MatchString(text) {
+			return actor, actor, nil
+		}
 	}
 
-	regex = regexp.MustCompile(`^you left the group\.$`)
-	if regex.MatchString(text) {
-		return "removed", actor, actor, nil
-	}
-
-	return "", nil, nil, fmt.Errorf("System message does not match")
+	return nil, nil, fmt.Errorf("System message does not match")
 }
 
 func (self *MsgSnapshot) extractContact(text string) (*Contact, error) {
